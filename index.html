@@ -3,23 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Strata CRM</title>
+<title>Strata Consultancy Group · CRM</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" onload="gsiLoaded()"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root {
-  --bg: #f5f4f0; --surface: #ffffff; --surface2: #f0efe9;
+  --bg: #f0f4f8; --surface: #ffffff; --surface2: #e8eef5;
   --border: rgba(0,0,0,0.08); --border2: rgba(0,0,0,0.14);
-  --text: #1a1a18; --text2: #6b6b63; --text3: #a8a89e;
-  --accent: #1e3a2f; --accent2: #2d5a44; --accent-light: #e8f0eb;
+  --text: #1a1e2e; --text2: #4a5568; --text3: #a0aec0;
+  --accent: #0f2d6b; --accent2: #1a4fa8; --accent-light: #e6edf8;
   --red: #c0392b; --red-bg: #fdf1f0;
   --amber: #b35c00; --amber-bg: #fef7ec;
-  --blue: #1a4f7a; --blue-bg: #eef4fb;
+  --blue: #1a4fa8; --blue-bg: #e6edf8;
   --green: #1e5c35; --green-bg: #eef6f1;
   --purple: #4a3580; --purple-bg: #f0edfb;
   --teal: #0f5a50; --teal-bg: #e8f4f3;
-  --gray: #555550; --gray-bg: #f0efe9;
+  --gray: #555560; --gray-bg: #e8eef5;
   --sidebar-w: 220px; --radius: 10px; --radius-sm: 6px;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -37,7 +37,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   padding: 40px 44px; width: 380px; text-align: center;
   box-shadow: 0 24px 80px rgba(0,0,0,0.3);
 }
-.login-logo { width: 52px; height: 52px; background: var(--accent); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #fff; font-weight: 700; margin: 0 auto 18px; }
+.login-logo { width: 64px; height: 64px; background: var(--accent2); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; padding: 12px; }
 .login-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
 .login-sub { font-size: 13px; color: var(--text2); margin-bottom: 28px; }
 .login-divider { font-size: 11px; color: var(--text3); margin: 18px 0; }
@@ -63,7 +63,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; color: rgba(255,255,255,0.65); font-size: 13.5px; transition: all 0.15s; position: relative; border: none; background: none; width: 100%; text-align: left; }
 .nav-item:hover { color: #fff; background: rgba(255,255,255,0.07); }
 .nav-item.active { color: #fff; background: rgba(255,255,255,0.12); }
-.nav-item.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #7ec8a0; border-radius: 0 2px 2px 0; }
+.nav-item.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #4a9fd4; border-radius: 0 2px 2px 0; }
 .nav-icon { font-size: 16px; width: 18px; text-align: center; flex-shrink: 0; }
 .nav-badge { margin-left: auto; background: #c0392b; color: #fff; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 10px; min-width: 18px; text-align: center; }
 .sidebar-user { padding: 14px 20px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 10px; }
@@ -224,7 +224,7 @@ thead .col-freeze-1, thead .col-freeze-2 {
   background: var(--surface2) !important; z-index: 11 !important;
 }
 tbody tr:hover .col-freeze-1,
-tbody tr:hover .col-freeze-2 { background: #eef0ea !important; }
+tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
 .freeze-wrapper { position: relative; overflow: hidden; }
 .freeze-wrapper .tbl-wrap { overflow-x: auto; overflow-y: visible; }
 
@@ -330,8 +330,14 @@ tbody tr:hover .col-freeze-2 { background: #eef0ea !important; }
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="login-screen">
   <div class="login-box">
-    <div class="login-logo">S</div>
-    <div class="login-title">Strata CRM</div>
+    <div class="login-logo">
+      <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 80 L20 30 Q20 20 30 18 L42 16 L42 75 Z" fill="rgba(255,255,255,0.7)"/>
+        <path d="M44 14 L56 14 Q62 14 62 22 L62 78 L44 78 Z" fill="#ffffff"/>
+        <path d="M64 16 L76 18 Q86 20 86 30 L86 80 L64 75 Z" fill="rgba(255,255,255,0.7)"/>
+      </svg>
+    </div>
+    <div class="login-title">Strata Consultancy Group</div>
     <div class="login-sub">Sign in to access your live CRM</div>
 
     <!-- Google Sign-In button renders here -->
@@ -360,7 +366,7 @@ tbody tr:hover .col-freeze-2 { background: #eef0ea !important; }
       <div class="login-error" id="login-error"></div>
     </div>
   </div>
-  <div class="login-footer">Strata Consultancy Group · Strata CRM v2.0</div>
+  <div class="login-footer">Strata Consultancy Group · CRM v2.6</div>
 </div>
 
 <!-- MAIN APP -->
@@ -368,10 +374,16 @@ tbody tr:hover .col-freeze-2 { background: #eef0ea !important; }
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="logo">
-        <div class="logo-mark">S</div>
+        <div class="logo-mark">
+          <svg width="20" height="20" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 80 L20 30 Q20 20 30 18 L42 16 L42 75 Z" fill="rgba(255,255,255,0.7)"/>
+            <path d="M44 14 L56 14 Q62 14 62 22 L62 78 L44 78 Z" fill="#ffffff"/>
+            <path d="M64 16 L76 18 Q86 20 86 30 L86 80 L64 75 Z" fill="rgba(255,255,255,0.7)"/>
+          </svg>
+        </div>
         <div>
           <div class="logo-text">Strata CRM</div>
-          <div class="logo-sub">Live · Google Sheets</div>
+          <div class="logo-sub">Consultancy Group</div>
         </div>
       </div>
     </div>
