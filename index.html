@@ -7,6 +7,10 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" onload="gsiLoaded()"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+  // Apply dark mode immediately to prevent flash
+  if(localStorage.getItem('strata_dark')==='1') document.documentElement.classList.add('dark-early');
+</script>
 <style>
 :root {
   --bg: #f0f4f8; --surface: #ffffff; --surface2: #e8eef5;
@@ -22,8 +26,22 @@
   --gray: #555560; --gray-bg: #e8eef5;
   --sidebar-w: 220px; --radius: 10px; --radius-sm: 6px;
 }
+body.dark {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2333;
+  --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
+  --text: #e6edf3; --text2: #8b949e; --text3: #484f58;
+  --accent: #1a4fa8; --accent2: #2563c4; --accent-light: #1a2744;
+  --red: #f85149; --red-bg: #2d1216;
+  --amber: #d29922; --amber-bg: #2a1f0a;
+  --blue: #4a9fd4; --blue-bg: #0d1f35;
+  --green: #3fb950; --green-bg: #0f2a14;
+  --purple: #8b7dd8; --purple-bg: #1e1635;
+  --teal: #2dd4bf; --teal-bg: #0d2a27;
+  --gray: #8b949e; --gray-bg: #1c2333;
+}
+html.dark-early body { background: #0d1117; color: #e6edf3; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; transition: background 0.2s, color 0.2s; }
 
 /* ── LOGIN SCREEN ── */
 .login-screen {
@@ -401,6 +419,9 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
     </nav>
     <button class="sync-btn" id="sync-btn" onclick="syncAll()">↻ Sync from Google Sheets</button>
     <button class="sync-btn" id="write-btn" onclick="requestWriteAccess(null)" style="background:rgba(126,200,160,0.15);border-color:rgba(126,200,160,0.3);color:rgba(126,200,160,0.9)">✎ Grant write access</button>
+    <button class="sync-btn" id="dark-toggle" onclick="toggleDarkMode()" style="display:flex;align-items:center;justify-content:center;gap:8px">
+      <span id="dark-icon">🌙</span><span id="dark-label">Dark mode</span>
+    </button>
     <div class="sidebar-user">
       <div class="user-avatar" id="user-avatar">?</div>
       <div class="user-info">
@@ -2595,6 +2616,27 @@ function grantWriteAccess(){ requestWriteAccess(null); }
 // ── GAPI LOADER ──
 
 // ── INIT ──
+// ── DARK MODE ──
+function toggleDarkMode(){
+  const isDark=document.body.classList.toggle('dark');
+  localStorage.setItem('strata_dark', isDark?'1':'0');
+  updateDarkToggle(isDark);
+}
+function updateDarkToggle(isDark){
+  const icon=document.getElementById('dark-icon');
+  const label=document.getElementById('dark-label');
+  if(!icon||!label) return;
+  icon.textContent=isDark?'☀️':'🌙';
+  label.textContent=isDark?'Light mode':'Dark mode';
+}
+function initDarkMode(){
+  const saved=localStorage.getItem('strata_dark');
+  const isDark=saved==='1';
+  if(isDark) document.body.classList.add('dark');
+  updateDarkToggle(isDark);
+}
+initDarkMode();
+
 checkSession();
 pollForGSI(); // Fallback in case GSI onload missed
 </script>
