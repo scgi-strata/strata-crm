@@ -999,7 +999,15 @@ function manualSignIn(){
   const code=document.getElementById('manual-code').value.trim();
   const err=document.getElementById('login-error');
   if(!name){ err.textContent='Please enter your name.'; return; }
-  if(!CFG.passcode){ err.textContent='No team passcode configured. Contact your admin.'; return; }
+  if(!CFG.passcode){
+    // No passcode configured yet — allow first-run access so admin can set up Settings
+    err.style.color='var(--accent2)';
+    err.textContent='First run: no passcode set. Go to Settings after login to configure.';
+    AUTH.name=name; AUTH.user='manual'; AUTH.signedIn=true;
+    localStorage.setItem('strata_auth', JSON.stringify({name, user:'manual'}));
+    launchApp();
+    return;
+  }
   if(code !== CFG.passcode){ err.textContent='Incorrect passcode. Please try again.'; return; }
   AUTH.name=name; AUTH.user='manual'; AUTH.signedIn=true;
   localStorage.setItem('strata_auth', JSON.stringify({name, user:'manual'}));
