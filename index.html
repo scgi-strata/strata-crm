@@ -416,12 +416,11 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
       <div class="nav-section-label">Config</div>
       <button class="nav-item" onclick="showPage('providers',this)"><span class="nav-icon">◆</span> Providers</button>
       <button class="nav-item" onclick="showPage('settings',this)"><span class="nav-icon">⚙</span> Settings</button>
+      <div class="nav-section-label">Display</div>
+      <button class="nav-item" id="dark-toggle" onclick="toggleDarkMode()"><span class="nav-icon" id="dark-icon">🌙</span> <span id="dark-label">Dark mode</span></button>
     </nav>
     <button class="sync-btn" id="sync-btn" onclick="syncAll()">↻ Sync from Google Sheets</button>
     <button class="sync-btn" id="write-btn" onclick="requestWriteAccess(null)" style="background:rgba(126,200,160,0.15);border-color:rgba(126,200,160,0.3);color:rgba(126,200,160,0.9)">✎ Grant write access</button>
-    <button class="sync-btn" id="dark-toggle" onclick="toggleDarkMode()" style="display:flex;align-items:center;justify-content:center;gap:8px">
-      <span id="dark-icon">🌙</span><span id="dark-label">Dark mode</span>
-    </button>
     <div class="sidebar-user">
       <div class="user-avatar" id="user-avatar">?</div>
       <div class="user-info">
