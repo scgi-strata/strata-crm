@@ -1198,6 +1198,43 @@ async function updateSheetRow(sheetName, rowIndex, row){
   });
 }
 
+async function getSheetGid(sheetName){
+  if(!CFG.sheetId) throw new Error('No Sheet ID configured.');
+  const resp = await gapi.client.sheets.spreadsheets.get({
+    spreadsheetId: CFG.sheetId,
+    fields: 'sheets.properties'
+  });
+  const sheet = resp.result.sheets.find(s => s.properties.title === sheetName);
+  if(!sheet) throw new Error(`Sheet "${sheetName}" not found in spreadsheet.`);
+  return sheet.properties.sheetId;
+}
+
+async function deleteSheetRow(sheetName, rowNumber){
+  // rowNumber is 1-based (matches _row property on records)
+  // API startIndex is 0-based
+  if(!CFG.sheetId) throw new Error('No Sheet ID configured.');
+  if(!window.gapi||!gapi.client) throw new Error('OAuth not initialized.');
+  const token = gapi.client.getToken ? gapi.client.getToken() : null;
+  if(!token||!token.access_token) throw new Error('NO_TOKEN');
+  const sheetGid = await getSheetGid(sheetName);
+  const startIndex = rowNumber - 1;
+  await gapi.client.sheets.spreadsheets.batchUpdate({
+    spreadsheetId: CFG.sheetId,
+    resource: {
+      requests: [{
+        deleteDimension: {
+          range: {
+            sheetId: sheetGid,
+            dimension: 'ROWS',
+            startIndex: startIndex,
+            endIndex: startIndex + 1
+          }
+        }
+      }]
+    }
+  });
+}
+
 // ── OAUTH & GAPI ──
 // Two libs load independently: gapi (apis.google.com/js/api.js) and GSI (accounts.google.com/gsi/client)
 // We track both and only init tokenClient when both are ready.
