@@ -2701,6 +2701,151 @@ async function saveProvider(){
   renderProviders();
 }
 
+// ── DELETE WITH PASSCODE ──
+let _pendingDeleteType = null;
+let _pendingDeleteIdx  = null;
+
+function showDeleteConfirm(type, idx) {
+  _pendingDeleteType = type;
+  _pendingDeleteIdx  = idx;
+
+  let lines = [];
+  if(type === 'client') {
+    const c = CLIENTS[idx];
+    lines.push(`👤 <b>${c.name}</b> (Client)`);
+    QUOTATIONS.filter(q => q.clientId === c.id).forEach(q =>
+      lines.push(`📋 ${q.id} — ${q.provider||'—'} (Quotation)`)
+    );
+    COA_DATA.filter(t => t.clientId === c.id).forEach(t =>
+      lines.push(`✅ ${(t.task||'').substring(0,50)}${(t.task||'').length>50?'…':''} (COA Task)`)
+    );
+  } else if(type === 'quotation') {
+    const q = QUOTATIONS[idx];
+    lines.push(`📋 <b>${q.id} — ${q.client}</b> (Quotation)`);
+  } else if(type === 'coa') {
+    const t = COA_DATA[idx];
+    lines.push(`✅ <b>${(t.task||'').substring(0,50)}${(t.task||'').length>50?'…':''}</b> (COA Task)`);
+  } else if(type === 'provider') {
+    const p = PROVIDERS[idx];
+    lines.push(`🏥 <b>${p.provider}</b> (Provider)`);
+  }
+
+  document.getElementById('del-list').innerHTML = lines.join('<br>');
+  document.getElementById('del-passcode').value = '';
+  document.getElementById('del-error').textContent = '';
+  openModal('delete-confirm-modal');
+}
+
+async function confirmDelete() {
+  const passcode = document.getElementById('del-passcode').value.trim();
+  const errEl = document.getElementById('del-error');
+  if(!passcode){ errEl.textContent = 'Enter passcode to confirm.'; return; }
+  if(passcode !== CFG.passcode){ errEl.textContent = 'Incorrect passcode.'; return; }
+  errEl.textContent = '';
+  const btn = document.getElementById('del-confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+  try {
+    await deleteRecord(_pendingDeleteType, _pendingDeleteIdx);
+    closeModal('delete-confirm-modal');
+    toast('Deleted — moved to Deleted sheet ✓', 'success');
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Confirm Delete';
+  }
+}
+
+async function deleteRecord(type, idx) {
+  const deletedAt = new Date().toISOString();
+  const deletedSheetName = CFG.deletedSheet || 'Deleted';
+
+  // Build list of records to delete (main record first, then cascade)
+  const toDelete = []; // [{sheetName, record, type, label}]
+
+  if(type === 'client') {
+    const c = CLIENTS[idx];
+    toDelete.push({ sheetName: CFG.clientsSheet, record: c, type: 'Client',
+                    label: c.name });
+    // Cascade: linked quotations
+    QUOTATIONS.forEach((q, qi) => {
+      if(q.clientId === c.id)
+        toDelete.push({ sheetName: CFG.quotesSheet, record: q, type: 'Quotation',
+                        label: q.client });
+    });
+    // Cascade: linked COA tasks
+    COA_DATA.forEach((t, ti) => {
+      if(t.clientId === c.id)
+        toDelete.push({ sheetName: CFG.coaSheet, record: t, type: 'COA',
+                        label: (t.task||'').substring(0,60) });
+    });
+  } else if(type === 'quotation') {
+    const q = QUOTATIONS[idx];
+    toDelete.push({ sheetName: CFG.quotesSheet, record: q, type: 'Quotation',
+                    label: q.client });
+  } else if(type === 'coa') {
+    const t = COA_DATA[idx];
+    toDelete.push({ sheetName: CFG.coaSheet, record: t, type: 'COA',
+                    label: (t.task||'').substring(0,60) });
+  } else if(type === 'provider') {
+    const p = PROVIDERS[idx];
+    toDelete.push({ sheetName: CFG.providersSheet, record: p, type: 'Provider',
+                    label: p.provider });
+  }
+
+  // 1. Append each record to the Deleted sheet
+  for(const item of toDelete) {
+    const id = item.record.id || item.record.provider || (item.record.date + '_' + item.record.client);
+    await appendToSheet(deletedSheetName, [
+      item.type, id, item.label, deletedAt, JSON.stringify(item.record)
+    ]);
+  }
+
+  // 2. Delete rows from source sheets — sort by _row descending within each sheet
+  //    to avoid row-index shifting when multiple rows are deleted from the same sheet
+  const bySheet = {};
+  toDelete.forEach(item => {
+    if(item.record._row) {
+      if(!bySheet[item.sheetName]) bySheet[item.sheetName] = [];
+      bySheet[item.sheetName].push(item.record._row);
+    }
+  });
+  for(const [sheetName, rows] of Object.entries(bySheet)) {
+    const sorted = [...rows].sort((a,b) => b - a); // highest first
+    for(const rowNumber of sorted) {
+      await deleteSheetRow(sheetName, rowNumber);
+    }
+  }
+
+  // 3. Remove from in-memory arrays
+  if(type === 'client') {
+    const clientId = CLIENTS[idx].id;
+    CLIENTS.splice(idx, 1);
+    const quoteIndicesToRemove = QUOTATIONS.map((q,i) => q.clientId===clientId ? i : -1)
+      .filter(i => i !== -1).sort((a,b) => b-a);
+    quoteIndicesToRemove.forEach(i => QUOTATIONS.splice(i, 1));
+    const coaIndicesToRemove = COA_DATA.map((t,i) => t.clientId===clientId ? i : -1)
+      .filter(i => i !== -1).sort((a,b) => b-a);
+    coaIndicesToRemove.forEach(i => COA_DATA.splice(i, 1));
+  } else if(type === 'quotation') {
+    QUOTATIONS.splice(idx, 1);
+  } else if(type === 'coa') {
+    COA_DATA.splice(idx, 1);
+  } else if(type === 'provider') {
+    PROVIDERS.splice(idx, 1);
+  }
+
+  // 4. Persist to localStorage
+  saveLocalData();
+
+  // 5. Re-render
+  if(type === 'client')    { renderClients(); renderDashboard(); }
+  if(type === 'quotation') { renderQuotations(); renderDashboard(); }
+  if(type === 'coa')       { renderCOA(); renderDashboard(); }
+  if(type === 'provider')  { renderProviders(); }
+}
+
 // ── QUICK-PEEK DRAWER ──
 let _qpActiveRow = null;
 
