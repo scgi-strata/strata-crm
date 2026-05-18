@@ -661,6 +661,7 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
     <!-- RENEWALS -->
     <div class="page" id="page-renewals">
       <div class="metric-grid" id="ren-metrics"></div>
+      <div id="ren-summary"></div>
       <div class="filter-bar">
         <input type="text" placeholder="🔍  Search clients..." id="r-search" oninput="renderRenewals()">
         <select id="r-urgency" onchange="renderRenewals()">
@@ -2053,6 +2054,7 @@ function renderRenewals(){
   _exportData.renewals = f;
   document.getElementById('r-count').textContent=`${f.length} clients`;
   document.getElementById('r-tbody').innerHTML=f.length?f.map(r=>`<tr><td class="td-mono">${r.id}</td><td class="td-bold">${r.name}</td><td>${r.currentProvider||'<span class="unassigned">—</span>'}</td><td>${fmt(r.dateObj)}</td><td>${daysCell(r.days)}</td><td><span class="badge ${r.u.cls}">${r.u.label}</span></td><td>${stBadge(r.status)}</td><td>${r.assigned||'<span class="unassigned">unassigned</span>'}</td><td>${r.insType}</td></tr>`).join(''):noData(9);
+  renderRenewalSummary();
 }
 
 // ── CSV EXPORT ──
@@ -2126,6 +2128,109 @@ function exportRenewals() {
     r.days !== null ? r.days : '', r.u ? r.u.label : '', r.assigned
   ]);
   exportToCSV(headers, rows, 'strata-renewals-' + todayStr() + '.csv');
+}
+
+function renderRenewalSummary() {
+  const el = document.getElementById('ren-summary');
+  if (!el) return;
+  const allRows = CLIENTS
+    .map(c => { const d = pd(c.renewal); const days = dd(d); return {...c, days, u: urg(days)}; })
+    .filter(r => r.days !== null && r.days >= 0)
+    .sort((a, b) => a.days - b.days);
+
+  const critical = allRows.filter(r => r.u.cat === 'critical');
+  const soon     = allRows.filter(r => r.u.cat === 'soon');
+  const upcoming = allRows.filter(r => r.u.cat === 'upcoming');
+  const future   = allRows.filter(r => r.u.cat === 'future');
+
+  const dateRange = arr => {
+    if (!arr.length) return '';
+    const first = fmt(pd(arr[0].renewal));
+    const last  = fmt(pd(arr[arr.length - 1].renewal));
+    return first === last ? first : first + ' – ' + last;
+  };
+
+  const clientRow = c =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+      <span style="font-weight:500">${c.name}</span>
+      <span style="font-size:12px;color:var(--text2)">${fmt(pd(c.renewal))} · ${c.insType||'—'} · ${c.assigned||'<span style="color:var(--text3)">unassigned</span>'}</span>
+    </div>`;
+
+  const upcomingToggleId = 'ren-summary-upcoming-detail';
+  const futureCount = future.length;
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:14px" id="ren-summary-card">
+      <div class="card-head no-print" style="padding-bottom:8px">
+        <h3>Renewal Alerts Summary</h3>
+        <span style="font-size:11px;color:var(--text3)">Excludes expired · ${allRows.length} active</span>
+      </div>
+      <div class="print-header" style="display:none;padding:0 16px 8px">
+        <div style="font-size:13px;font-weight:600">Strata Consultancy Group · Renewal Alerts · ${new Date().toLocaleDateString('en-PH',{month:'long',day:'numeric',year:'numeric'})}</div>
+      </div>
+      <div style="padding:0 16px 12px">
+
+        <!-- STAT CARDS -->
+        <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="flex:1;min-width:80px;background:var(--red-bg);border-left:3px solid var(--red);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--red)">${critical.length}</div>
+            <div style="font-size:11px;color:var(--red);font-weight:500">Critical</div>
+            <div style="font-size:10px;color:var(--text3)">≤14 days</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--amber-bg);border-left:3px solid var(--amber);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--amber)">${soon.length}</div>
+            <div style="font-size:11px;color:var(--amber);font-weight:500">Soon</div>
+            <div style="font-size:10px;color:var(--text3)">15–30 days</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--blue-bg);border-left:3px solid var(--blue);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--blue)">${upcoming.length}</div>
+            <div style="font-size:11px;color:var(--blue);font-weight:500">Upcoming</div>
+            <div style="font-size:10px;color:var(--text3)">31–90 days</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--gray-bg);border-left:3px solid var(--gray);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--gray)">${futureCount}</div>
+            <div style="font-size:11px;color:var(--gray);font-weight:500">Future</div>
+            <div style="font-size:10px;color:var(--text3)">91+ days</div>
+          </div>
+        </div>
+
+        <!-- CRITICAL GROUP -->
+        ${critical.length ? `
+          <div style="margin-bottom:10px">
+            <div style="font-size:11px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🔴 Critical (≤14 days)</div>
+            ${critical.map(clientRow).join('')}
+          </div>` : ''}
+
+        <!-- SOON GROUP -->
+        ${soon.length ? `
+          <div style="margin-bottom:10px">
+            <div style="font-size:11px;font-weight:600;color:var(--amber);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🟠 Soon (15–30 days)</div>
+            ${soon.map(clientRow).join('')}
+          </div>` : ''}
+
+        <!-- UPCOMING GROUP (collapsible on screen via toggle; CSS expands on print) -->
+        ${upcoming.length ? `
+          <div style="margin-bottom:10px">
+            <div style="font-size:11px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🔵 Upcoming (31–90 days)</div>
+            <button class="btn no-print" style="font-size:11px;height:24px;padding:0 10px;margin-bottom:6px" onclick="
+              var d=document.getElementById('${upcomingToggleId}');
+              var b=this;
+              if(d.style.display==='none'){d.style.display='block';b.textContent='▾ Collapse';}
+              else{d.style.display='none';b.textContent='▸ Show ${upcoming.length} clients';}
+            ">▸ Show ${upcoming.length} clients</button>
+            <div id="${upcomingToggleId}" style="display:none">
+              ${upcoming.map(clientRow).join('')}
+            </div>
+          </div>` : ''}
+
+        <!-- FUTURE GROUP -->
+        ${futureCount ? `
+          <div style="color:var(--text3);font-size:12px;padding:4px 0">
+            <span style="font-weight:500">Future (91+ days):</span> ${futureCount} client${futureCount===1?'':'s'} renewing after ${dateRange(upcoming.concat(future).slice(-1))||'90 days'}
+          </div>` : ''}
+
+      </div>
+    </div>`;
 }
 
 // ── PROVIDERS ──
