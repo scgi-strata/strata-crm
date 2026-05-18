@@ -1,0 +1,2942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strata Consultancy Group · CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" onload="gsiLoaded()"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+  // Apply dark mode immediately to prevent flash
+  if(localStorage.getItem('strata_dark')==='1') document.documentElement.classList.add('dark-early');
+</script>
+<style>
+:root {
+  --bg: #f0f4f8; --surface: #ffffff; --surface2: #e8eef5;
+  --border: rgba(0,0,0,0.08); --border2: rgba(0,0,0,0.14);
+  --text: #1a1e2e; --text2: #4a5568; --text3: #a0aec0;
+  --accent: #0f2d6b; --accent2: #1a4fa8; --accent-light: #e6edf8;
+  --red: #c0392b; --red-bg: #fdf1f0;
+  --amber: #b35c00; --amber-bg: #fef7ec;
+  --blue: #1a4fa8; --blue-bg: #e6edf8;
+  --green: #1e5c35; --green-bg: #eef6f1;
+  --purple: #4a3580; --purple-bg: #f0edfb;
+  --teal: #0f5a50; --teal-bg: #e8f4f3;
+  --gray: #555560; --gray-bg: #e8eef5;
+  --sidebar-w: 220px; --radius: 10px; --radius-sm: 6px;
+}
+body.dark {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2333;
+  --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
+  --text: #e6edf3; --text2: #8b949e; --text3: #484f58;
+  --accent: #1a4fa8; --accent2: #2563c4; --accent-light: #1a2744;
+  --red: #f85149; --red-bg: #2d1216;
+  --amber: #d29922; --amber-bg: #2a1f0a;
+  --blue: #4a9fd4; --blue-bg: #0d1f35;
+  --green: #3fb950; --green-bg: #0f2a14;
+  --purple: #8b7dd8; --purple-bg: #1e1635;
+  --teal: #2dd4bf; --teal-bg: #0d2a27;
+  --gray: #8b949e; --gray-bg: #1c2333;
+}
+html.dark-early body { background: #0d1117; color: #e6edf3; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; transition: background 0.2s, color 0.2s; }
+
+/* ── LOGIN SCREEN ── */
+.login-screen {
+  position: fixed; inset: 0; background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999; flex-direction: column; gap: 0;
+}
+.login-screen.hidden { display: none; }
+.login-box {
+  background: var(--surface); border-radius: 16px;
+  padding: 40px 44px; width: 380px; text-align: center;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.3);
+}
+.login-logo { width: 64px; height: 64px; background: var(--accent2); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; padding: 12px; }
+.login-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+.login-sub { font-size: 13px; color: var(--text2); margin-bottom: 28px; }
+.login-divider { font-size: 11px; color: var(--text3); margin: 18px 0; }
+.login-manual { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.login-manual label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text2); }
+.login-manual input { width: 100%; padding: 9px 12px; border: 1px solid var(--border2); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); outline: none; }
+.login-manual input:focus { border-color: var(--accent2); }
+.login-btn { width: 100%; padding: 11px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; margin-top: 4px; transition: background 0.15s; }
+.login-btn:hover { background: var(--accent2); }
+.login-error { font-size: 12px; color: var(--red); margin-top: 6px; text-align: center; min-height: 16px; }
+.login-footer { color: rgba(255,255,255,0.4); font-size: 11px; margin-top: 20px; }
+
+/* ── LAYOUT ── */
+.layout { display: flex; min-height: 100vh; }
+.sidebar { width: var(--sidebar-w); background: var(--accent); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+.sidebar-brand { padding: 24px 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-mark { width: 32px; height: 32px; background: rgba(255,255,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #fff; font-weight: 600; }
+.logo-text { color: #fff; font-size: 15px; font-weight: 600; }
+.logo-sub { color: rgba(255,255,255,0.5); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
+.sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+.nav-section-label { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.35); padding: 14px 20px 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; color: rgba(255,255,255,0.65); font-size: 13.5px; transition: all 0.15s; position: relative; border: none; background: none; width: 100%; text-align: left; }
+.nav-item:hover { color: #fff; background: rgba(255,255,255,0.07); }
+.nav-item.active { color: #fff; background: rgba(255,255,255,0.12); }
+.nav-item.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #4a9fd4; border-radius: 0 2px 2px 0; }
+.nav-icon { font-size: 16px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-badge { margin-left: auto; background: #c0392b; color: #fff; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 10px; min-width: 18px; text-align: center; }
+.sidebar-user { padding: 14px 20px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 10px; }
+.user-avatar { width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #fff; flex-shrink: 0; overflow: hidden; }
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.user-info { flex: 1; min-width: 0; }
+.user-name { color: #fff; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { color: rgba(255,255,255,0.45); font-size: 10px; }
+.signout-btn { background: none; border: none; color: rgba(255,255,255,0.4); font-size: 16px; cursor: pointer; padding: 2px; border-radius: 4px; }
+.signout-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+.sync-btn { display: block; width: calc(100% - 32px); margin: 0 16px 14px; padding: 7px 10px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; font-size: 11px; cursor: pointer; font-family: 'DM Sans', sans-serif; text-align: center; transition: background 0.15s; }
+.sync-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+.sync-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+.topbar-left { display: flex; align-items: center; gap: 8px; }
+.topbar-title { font-size: 15px; font-weight: 500; }
+.topbar-sep { color: var(--text3); }
+.topbar-sub { font-size: 13px; color: var(--text2); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.sync-status { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+.sync-status.live { color: var(--green); }
+.sync-status.error { color: var(--red); }
+.sync-status.saving { color: var(--amber); }
+.btn { height: 32px; padding: 0 14px; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: var(--surface); font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; color: var(--text); transition: all 0.15s; }
+.btn:hover { background: var(--surface2); }
+.btn-primary { background: var(--accent); color: #fff; border-color: transparent; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-danger { background: var(--red-bg); color: var(--red); border-color: transparent; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.page { padding: 24px 28px; flex: 1; display: none; }
+.page.active { display: block; }
+
+/* ── TOAST ── */
+.toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 500; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: var(--text); color: #fff; padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); animation: slideIn 0.2s ease; max-width: 320px; }
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+.toast.saving { background: var(--amber); }
+@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* ── METRICS ── */
+.metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+.metric-card.accent { background: var(--accent); border-color: transparent; }
+.metric-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-weight: 500; }
+.metric-card.accent .metric-label { color: rgba(255,255,255,0.55); }
+.metric-value { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+.metric-card.accent .metric-value { color: #fff; }
+.metric-value.danger { color: var(--red); }
+.metric-value.warn { color: var(--amber); }
+.metric-value.info { color: var(--blue); }
+.metric-delta { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+.section-title { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text2); margin-bottom: 10px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: visible; margin-bottom: 16px; }
+.card-head { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card-head h3 { font-size: 13px; font-weight: 600; }
+.card-count { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; background: var(--surface2); padding: 2px 8px; border-radius: 10px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+/* ── TABLE ── */
+.tbl-wrap { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; border-radius: var(--radius); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text3); padding: 10px 16px; background: var(--surface2); border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+tbody td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; font-size: 13px; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--surface2); }
+.td-mono { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text2); }
+.td-bold { font-weight: 500; }
+
+/* ── BADGES ── */
+.badge { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+.badge-red { background: var(--red-bg); color: var(--red); }
+.badge-amber { background: var(--amber-bg); color: var(--amber); }
+.badge-blue { background: var(--blue-bg); color: var(--blue); }
+.badge-green { background: var(--green-bg); color: var(--green); }
+.badge-purple { background: var(--purple-bg); color: var(--purple); }
+.badge-teal { background: var(--teal-bg); color: var(--teal); }
+.badge-gray { background: var(--gray-bg); color: var(--gray); }
+
+/* ── FILTERS ── */
+.filter-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+.filter-bar input, .filter-bar select { height: 34px; padding: 0 12px; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; transition: border-color 0.15s; }
+.filter-bar input:focus, .filter-bar select:focus { border-color: var(--accent2); }
+.filter-bar input { min-width: 200px; flex: 1; }
+
+/* ── PIPELINE ── */
+.pipeline { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+.pl-col { background: var(--surface2); border-radius: var(--radius-sm); padding: 12px; }
+.pl-col-name { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.pl-count { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+.pl-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 10px; margin-bottom: 5px; cursor: pointer; transition: border-color 0.1s; }
+.pl-item:hover { border-color: var(--accent2); }
+.pl-item-name { font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-item-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+/* ── RENEWAL ── */
+.days-wrap { display: flex; flex-direction: column; gap: 2px; }
+.days-val { font-size: 12px; font-weight: 600; font-family: 'DM Mono', monospace; }
+.days-bar { height: 3px; border-radius: 2px; opacity: 0.6; max-width: 80px; }
+.days-sub { font-size: 10px; color: var(--text3); }
+
+/* ── STAB ── */
+.stab-row { display: flex; gap: 0; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+.stab { padding: 8px 16px; border: none; background: none; font-size: 13px; font-family: 'DM Sans', sans-serif; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.stab.active { color: var(--accent); font-weight: 500; border-bottom-color: var(--accent); }
+
+/* ── MODAL ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border-radius: var(--radius); width: 580px; max-width: 96vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+.modal-head { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.modal-head h3 { font-size: 15px; font-weight: 600; }
+.modal-close { border: none; background: none; font-size: 20px; cursor: pointer; color: var(--text3); padding: 2px 6px; border-radius: 4px; }
+.modal-close:hover { background: var(--surface2); }
+.modal-body { padding: 20px 22px; }
+.modal-foot { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
+.modal-saving { font-size: 12px; color: var(--text3); margin-right: auto; transition: color 0.15s; }
+.modal-saving:empty { display: none; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text2); }
+.form-input, .form-select, .form-textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border2); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.15s; }
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent2); }
+.form-textarea { resize: vertical; min-height: 72px; }
+
+/* ── SETTINGS ── */
+.settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px; }
+.settings-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.settings-card p { font-size: 13px; color: var(--text2); margin-bottom: 14px; line-height: 1.6; }
+.settings-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 10px; }
+.settings-row .form-group { flex: 1; }
+code { font-family: 'DM Mono', monospace; background: var(--surface2); padding: 1px 6px; border-radius: 4px; font-size: 12px; color: var(--accent); }
+.connected-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--green-bg); color: var(--green); font-size: 12px; font-weight: 500; padding: 4px 12px; border-radius: 20px; margin-bottom: 14px; }
+.not-connected-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--gray-bg); color: var(--gray); font-size: 12px; font-weight: 500; padding: 4px 12px; border-radius: 20px; margin-bottom: 14px; }
+
+/* ── FROZEN COLUMNS ── */
+.tbl-freeze { border-collapse: collapse; }
+.tbl-freeze th, .tbl-freeze td { white-space: nowrap; }
+.col-freeze-1 {
+  position: sticky !important; left: 0 !important; z-index: 10 !important;
+  background: var(--surface) !important;
+  min-width: 80px; max-width: 80px; width: 80px;
+  box-shadow: 2px 0 4px rgba(0,0,0,0.08);
+}
+.col-freeze-2 {
+  position: sticky !important; left: 80px !important; z-index: 10 !important;
+  background: var(--surface) !important;
+  min-width: 180px; max-width: 180px; width: 180px;
+  box-shadow: 3px 0 8px rgba(0,0,0,0.10);
+  overflow: hidden; text-overflow: ellipsis;
+}
+thead .col-freeze-1, thead .col-freeze-2 {
+  background: var(--surface2) !important; z-index: 11 !important;
+}
+tbody tr:hover .col-freeze-1,
+tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
+.freeze-wrapper { position: relative; overflow: hidden; }
+.freeze-wrapper .tbl-wrap { overflow-x: auto; overflow-y: visible; }
+
+/* ── HISTORY PANEL ── */
+.history-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-top: 16px; }
+.history-panel-head { padding: 10px 16px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between; }
+.history-entry { padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; gap: 12px; align-items: flex-start; }
+.history-entry:last-child { border-bottom: none; }
+.history-date { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; white-space: nowrap; min-width: 80px; margin-top: 2px; }
+.history-body { flex: 1; line-height: 1.5; }
+.history-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 10px; white-space: nowrap; }
+
+/* ── DASHBOARD SCROLL LISTS ── */
+.dash-scroll-list { max-height: 224px; overflow-y: auto; }
+.dash-scroll-list::-webkit-scrollbar { width: 4px; }
+.dash-scroll-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+.dash-list-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); align-items: center; }
+.dash-list-row:last-child { border-bottom: none; }
+.dash-list-name { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-list-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.dash-list-meta { text-align: right; flex-shrink: 0; }
+.dash-scroll-hint { text-align: center; font-size: 10px; color: var(--text3); padding: 5px 0; border-top: 1px solid var(--border); display: none; }
+.dash-scroll-hint.visible { display: block; }
+
+/* ── DASHBOARD COLLAPSIBLES ── */
+.dash-coll { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; }
+.dash-coll-trigger { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 11px 18px; background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text); font-family: 'DM Sans', sans-serif; text-align: left; }
+.dash-coll-trigger:hover { background: var(--surface2); }
+.dash-coll-right { display: flex; align-items: center; gap: 8px; }
+.dash-coll-chevron { font-size: 13px; color: var(--text3); transition: transform 0.2s; display: inline-block; }
+.dash-coll-chevron.open { transform: rotate(180deg); }
+.dash-coll-body { display: none; border-top: 1px solid var(--border); }
+.dash-coll-body.open { display: block; }
+
+/* ── CHART.JS CANVAS ── */
+#dash-pipeline-chart { width: 100% !important; }
+
+/* ── QUICK-PEEK DRAWER ── */
+.qp-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.18); z-index: 150; display: none; }
+.qp-overlay.open { display: block; }
+.qp-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; background: var(--surface); border-left: 1px solid var(--border2); z-index: 151; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.22s cubic-bezier(0.4,0,0.2,1); }
+.qp-drawer.open { transform: translateX(0); }
+.qp-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.qp-type { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); }
+.qp-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text3); padding: 2px 6px; border-radius: 4px; line-height: 1; }
+.qp-close:hover { background: var(--surface2); color: var(--text); }
+.qp-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.qp-tab { flex: 1; padding: 9px 0; font-size: 12px; font-weight: 500; color: var(--text3); background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: 'DM Sans', sans-serif; transition: all 0.12s; }
+.qp-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.qp-tab:hover:not(.active) { background: var(--surface2); color: var(--text2); }
+.qp-body { flex: 1; overflow-y: auto; }
+.qp-panel { display: none; padding: 16px 18px; }
+.qp-panel.active { display: block; }
+.qp-name { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.qp-id { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-bottom: 10px; }
+.qp-field { margin-bottom: 12px; }
+.qp-field-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 4px; }
+.qp-field-val { font-size: 13px; color: var(--text); line-height: 1.5; }
+.qp-field-val.overdue { color: var(--red); font-weight: 500; }
+.qp-notes { background: var(--surface2); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; color: var(--text2); line-height: 1.6; }
+.qp-divider { height: 1px; background: var(--border); margin: 14px 0; }
+.qp-hint { font-size: 12px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+.qp-open-full { width: 100%; padding: 10px 14px; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text); text-align: left; display: flex; align-items: center; justify-content: space-between; transition: background 0.12s; font-family: 'DM Sans', sans-serif; }
+.qp-open-full:hover { background: var(--surface2); }
+.qp-form-input { width: 100%; padding: 7px 10px; border: 1px solid var(--border2); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.15s; }
+.qp-form-input:focus { border-color: var(--accent2); }
+.qp-form-select { width: 100%; padding: 7px 10px; border: 1px solid var(--border2); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--surface); outline: none; }
+.qp-form-select:focus { border-color: var(--accent2); }
+.qp-form-textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--border2); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--surface); outline: none; resize: vertical; min-height: 72px; line-height: 1.5; }
+.qp-form-textarea:focus { border-color: var(--accent2); }
+.qp-save-msg { font-size: 12px; margin-top: 8px; min-height: 16px; }
+.qp-save-msg.ok { color: var(--green); }
+.qp-save-msg.err { color: var(--red); }
+.qp-complete-banner { background: var(--green-bg); border: 1px solid var(--green); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 12px; color: var(--green); margin-bottom: 14px; }
+.qp-history-entry { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.qp-history-entry:last-child { border-bottom: none; }
+.qp-history-time { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-bottom: 4px; }
+.qp-history-body { font-size: 12px; color: var(--text); line-height: 1.5; }
+.qp-foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.qp-btn { padding: 7px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: var(--surface); font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text); font-family: 'DM Sans', sans-serif; transition: all 0.12s; }
+.qp-btn:hover { background: var(--surface2); }
+.qp-btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
+.qp-btn.primary:hover { background: var(--accent2); }
+.qp-btn.success { background: var(--green-bg); color: var(--green); border-color: transparent; }
+.qp-btn.success:hover { background: #d5eddc; }
+.qp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.dash-clickable { cursor: pointer; color: var(--blue); text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; font-weight: 500; }
+.dash-clickable:hover { color: var(--accent); }
+.empty { padding: 36px; text-align: center; color: var(--text3); font-size: 13px; }
+.overdue { color: var(--red); font-weight: 500; }
+.warn-date { color: var(--amber); font-weight: 500; }
+.unassigned { color: var(--text3); font-style: italic; font-size: 12px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
+
+/* ── PRINT STYLES ── */
+
+/* Screen: hide print-only elements */
+@media screen {
+  .print-only,
+  .print-header,
+  #dash-print-header,
+  #dash-print-charts { display: none !important; }
+}
+
+/* Print: hide screen chrome, show print elements */
+@media print {
+  /* Hide navigation and interactive controls */
+  .sidebar, .topbar, .no-print,
+  .filter-bar, .stab-row, #ren-metrics { display: none !important; }
+
+  /* Remove sidebar offset */
+  .main { margin-left: 0 !important; padding: 0 !important; }
+  .page { padding: 20px !important; }
+
+  /* Show print-only elements */
+  .print-only { display: block !important; }
+  #dash-print-header { display: block !important; margin-bottom: 16px; }
+  #dash-print-charts { display: block !important; margin-bottom: 16px; }
+  .print-header { display: block !important; }
+
+  /* Clean card styling */
+  .card { box-shadow: none !important; border: 1px solid #ccc !important; margin-bottom: 12px !important; }
+  body { background: #fff !important; color: #000 !important; font-size: 12px !important; }
+  canvas { display: none !important; }
+
+  /* Dashboard: expand all collapsibles */
+  .dash-coll-body { display: block !important; max-height: none !important; overflow: visible !important; }
+
+  /* Renewals: hide the renewals table card on print (summary panel is enough) */
+  #page-renewals .card:not(#ren-summary-card) { display: none !important; }
+
+  /* Renewals: expand the upcoming clients toggle on print */
+  [id^="ren-summary-upcoming-detail"] { display: block !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 80 L20 30 Q20 20 30 18 L42 16 L42 75 Z" fill="rgba(255,255,255,0.7)"/>
+        <path d="M44 14 L56 14 Q62 14 62 22 L62 78 L44 78 Z" fill="#ffffff"/>
+        <path d="M64 16 L76 18 Q86 20 86 30 L86 80 L64 75 Z" fill="rgba(255,255,255,0.7)"/>
+      </svg>
+    </div>
+    <div class="login-title">Strata Consultancy Group</div>
+    <div class="login-sub">Sign in to access your live CRM</div>
+
+    <!-- Google Sign-In button renders here -->
+    <div id="g_id_onload"
+      data-client_id="YOUR_GOOGLE_CLIENT_ID"
+      data-callback="handleGoogleSignIn"
+      data-auto_prompt="false">
+    </div>
+    <div class="g_id_signin"
+      data-type="standard"
+      data-size="large"
+      data-theme="outline"
+      data-text="sign_in_with"
+      data-shape="rectangular"
+      data-logo_alignment="left"
+      data-width="292">
+    </div>
+
+    <div class="login-divider">— or sign in manually —</div>
+    <div class="login-manual">
+      <label>Your name</label>
+      <input type="text" id="manual-name" placeholder="e.g. Mikko Garin">
+      <label>Team code</label>
+      <input type="password" id="manual-code" placeholder="Enter team passcode" onkeydown="if(event.key==='Enter')manualSignIn()">
+      <button class="login-btn" onclick="manualSignIn()">Sign in</button>
+      <div class="login-error" id="login-error"></div>
+    </div>
+  </div>
+  <div class="login-footer">Strata Consultancy Group · CRM v2.6</div>
+</div>
+
+<!-- MAIN APP -->
+<div class="layout" id="main-app" style="display:none">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo">
+        <div class="logo-mark">
+          <svg width="20" height="20" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 80 L20 30 Q20 20 30 18 L42 16 L42 75 Z" fill="rgba(255,255,255,0.7)"/>
+            <path d="M44 14 L56 14 Q62 14 62 22 L62 78 L44 78 Z" fill="#ffffff"/>
+            <path d="M64 16 L76 18 Q86 20 86 30 L86 80 L64 75 Z" fill="rgba(255,255,255,0.7)"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-text">Strata CRM</div>
+          <div class="logo-sub">Consultancy Group</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <button class="nav-item active" onclick="showPage('dashboard',this)"><span class="nav-icon">◈</span> Dashboard</button>
+      <button class="nav-item" onclick="showPage('clients',this)"><span class="nav-icon">◎</span> Clients <span class="nav-badge" id="nb-clients">—</span></button>
+      <button class="nav-item" onclick="showPage('quotations',this)"><span class="nav-icon">◻</span> Quotations</button>
+      <button class="nav-item" onclick="showPage('coa',this)"><span class="nav-icon">◷</span> COA Tasks <span class="nav-badge" id="nb-coa" style="background:#b35c00">—</span></button>
+      <div class="nav-section-label">Alerts</div>
+      <button class="nav-item" onclick="showPage('renewals',this)"><span class="nav-icon">⏰</span> Renewals <span class="nav-badge" id="nb-renewals">—</span></button>
+      <div class="nav-section-label">Config</div>
+      <button class="nav-item" onclick="showPage('providers',this)"><span class="nav-icon">◆</span> Providers</button>
+      <button class="nav-item" onclick="showPage('settings',this)"><span class="nav-icon">⚙</span> Settings</button>
+      <div class="nav-section-label">Display</div>
+      <button class="nav-item" id="dark-toggle" onclick="toggleDarkMode()"><span class="nav-icon" id="dark-icon">🌙</span> <span id="dark-label">Dark mode</span></button>
+    </nav>
+    <button class="sync-btn" id="sync-btn" onclick="syncAll()">↻ Sync from Google Sheets</button>
+    <button class="sync-btn" id="write-btn" onclick="requestWriteAccess(null)" style="background:rgba(126,200,160,0.15);border-color:rgba(126,200,160,0.3);color:rgba(126,200,160,0.9)">✎ Grant write access</button>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div class="user-info">
+        <div class="user-name" id="user-name">—</div>
+        <div class="user-role" id="user-role">—</div>
+      </div>
+      <button class="signout-btn" onclick="signOut()" title="Sign out">↩</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <span class="topbar-title" id="page-title">Dashboard</span>
+        <span class="topbar-sep">·</span>
+        <span class="topbar-sub" id="page-sub">Overview</span>
+      </div>
+      <div class="topbar-right">
+        <span class="sync-status" id="sync-status">● not synced</span>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+
+      <!-- PRINT HEADER (screen: hidden, print: visible) -->
+      <div id="dash-print-header" style="display:none;margin-bottom:16px">
+        <div style="font-size:16px;font-weight:600">Strata Consultancy Group · Dashboard Report</div>
+        <div style="font-size:12px;color:#666" id="dash-print-date"></div>
+      </div>
+
+      <!-- PRINT BUTTON (screen: visible, print: hidden) -->
+      <div class="no-print" style="display:flex;justify-content:flex-end;margin-bottom:10px">
+        <button class="btn" onclick="document.getElementById('dash-print-date').textContent=new Date().toLocaleString('en-PH',{month:'long',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true});window.print();" title="Print dashboard report">🖨 Print Dashboard</button>
+      </div>
+
+      <!-- TOP METRICS -->
+      <div class="metric-grid" id="dash-metrics"></div>
+
+      <!-- CHART TEXT FALLBACK (screen: hidden, print: visible) -->
+      <div id="dash-print-charts" style="display:none">
+        <div class="card" style="padding:12px 16px;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:600;margin-bottom:6px">Pipeline Summary</div>
+          <div id="dash-print-pipeline" style="font-size:12px;line-height:2"></div>
+        </div>
+        <div class="card" style="padding:12px 16px;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:600;margin-bottom:6px">Quotation Status</div>
+          <div id="dash-print-quotes" style="font-size:12px;line-height:2"></div>
+        </div>
+      </div>
+
+      <!-- CHARTS ROW -->
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card">
+          <div class="card-head"><h3>Pipeline by stage</h3></div>
+          <div style="padding:14px 16px 12px"><canvas id="dash-pipeline-chart" height="150"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Quotation status</h3></div>
+          <div style="padding:14px 16px 12px;display:flex;align-items:center;gap:16px">
+            <canvas id="dash-quote-chart" width="130" height="130" style="flex-shrink:0"></canvas>
+            <div id="dash-quote-legend" style="flex:1;font-size:11px;display:flex;flex-direction:column;gap:7px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTION TABLES -->
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card">
+          <div class="card-head">
+            <h3>Overdue follow-ups</h3>
+            <span class="card-count" id="dash-overdue-count" style="background:var(--red-bg);color:var(--red)"></span>
+          </div>
+          <div class="dash-scroll-list" id="dash-overdue"></div>
+          <div class="dash-scroll-hint" id="dash-overdue-hint"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h3>Open COA tasks</h3>
+            <span class="card-count" id="dash-coa-count"></span>
+          </div>
+          <div class="dash-scroll-list" id="dash-coa"></div>
+          <div class="dash-scroll-hint" id="dash-coa-hint"></div>
+        </div>
+      </div>
+
+      <!-- COLLAPSIBLES -->
+      <div class="section-title">More detail</div>
+
+      <div class="dash-coll" id="coll-pipeline">
+        <button class="dash-coll-trigger" onclick="dashToggle('coll-pipeline')">
+          <span>Full pipeline breakdown</span>
+          <span class="dash-coll-right"><span class="card-count">7 stages</span><span class="dash-coll-chevron">▾</span></span>
+        </button>
+        <div class="dash-coll-body">
+          <div class="pipeline" id="dash-pipeline" style="padding:14px;gap:6px"></div>
+        </div>
+      </div>
+
+      <div class="dash-coll" id="coll-renewals">
+        <button class="dash-coll-trigger" onclick="dashToggle('coll-renewals')">
+          <span>Upcoming renewals</span>
+          <span class="dash-coll-right"><span class="card-count" id="dash-coll-ren-badge"></span><span class="dash-coll-chevron">▾</span></span>
+        </button>
+        <div class="dash-coll-body">
+          <div class="tbl-wrap"><table><thead><tr><th>Client</th><th>Current provider</th><th>Renewal date</th><th>Days left</th><th>Urgency</th><th>Status</th></tr></thead><tbody id="dash-renewals"></tbody></table></div>
+        </div>
+      </div>
+
+      <div class="dash-coll" id="coll-quotes-attn">
+        <button class="dash-coll-trigger" onclick="dashToggle('coll-quotes-attn')">
+          <span>Quotations needing attention</span>
+          <span class="dash-coll-right"><span class="card-count" id="dash-coll-q-badge"></span><span class="dash-coll-chevron">▾</span></span>
+        </button>
+        <div class="dash-coll-body">
+          <div class="tbl-wrap"><table><thead><tr><th>Quote</th><th>Client</th><th>Provider</th><th>Status</th><th>Follow-up</th></tr></thead><tbody id="dash-quotes-attn"></tbody></table></div>
+        </div>
+      </div>
+
+      <div class="dash-coll" id="coll-unassigned">
+        <button class="dash-coll-trigger" onclick="dashToggle('coll-unassigned')">
+          <span>Unassigned clients</span>
+          <span class="dash-coll-right"><span class="card-count" id="dash-coll-ua-badge"></span><span class="dash-coll-chevron">▾</span></span>
+        </button>
+        <div class="dash-coll-body">
+          <div class="tbl-wrap"><table><thead><tr><th>Client</th><th>Status</th><th>Renewal</th><th>Insurance</th></tr></thead><tbody id="dash-unassigned"></tbody></table></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- QUICK-PEEK DRAWER -->
+    <div class="qp-overlay" id="qp-overlay" onclick="closeDrawer()"></div>
+    <div class="qp-drawer" id="qp-drawer">
+      <div class="qp-head">
+        <span class="qp-type" id="qp-type">Record</span>
+        <button class="qp-close" onclick="closeDrawer()">×</button>
+      </div>
+      <div class="qp-tabs" id="qp-tabs"></div>
+      <div class="qp-body" id="qp-body"></div>
+      <div class="qp-foot" id="qp-foot"></div>
+    </div>
+
+    <!-- CLIENTS -->
+    <div class="page" id="page-clients">
+      <div class="stab-row">
+        <button class="stab active" onclick="setClientTab('active',this)">Active</button>
+        <button class="stab" onclick="setClientTab('closed',this)">Closed</button>
+        <button class="stab" onclick="setClientTab('all',this)">All</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" placeholder="🔍  Search clients..." id="c-search" oninput="renderClients()">
+        <select id="c-status" onchange="renderClients()"><option value="">All statuses</option></select>
+        <select id="c-assigned" onchange="renderClients()"><option value="">All assignees</option></select>
+        <select id="c-instype" onchange="renderClients()"><option value="">All insurance</option></select>
+        <button class="btn no-print" onclick="exportClients()" title="Export visible rows to CSV">⬇ Export CSV</button>
+        <button class="btn btn-primary" onclick="openClientModal(null)">+ Add client</button>
+      </div>
+      <!-- Client sub-tabs -->
+      <div class="stab-row" id="client-subtab-row" style="margin-top:-8px">
+        <button class="stab active" onclick="setClientSubTab('records',this)">Records</button>
+        <button class="stab" onclick="setClientSubTab('history',this)">History</button>
+      </div>
+
+      <!-- Records view -->
+      <div id="client-records-view">
+      <div class="card">
+        <div class="card-head"><h3>Client records</h3><span class="card-count" id="c-count"></span></div>
+        <div class="tbl-wrap"><table class="tbl-freeze"><thead><tr>
+          <th style="min-width:80px">Client ID</th>
+          <th style="min-width:180px">Client Name</th>
+          <th style="min-width:150px">Contact Person</th>
+          <th style="min-width:120px">Mobile No.</th>
+          <th style="min-width:180px">Email</th>
+          <th style="min-width:160px">Business Type</th>
+          <th style="min-width:100px">Insurance</th>
+          <th style="min-width:120px">Current Provider</th>
+          <th style="min-width:110px">Renewal Date</th>
+          <th style="min-width:110px">Target Provider</th>
+          <th style="min-width:130px">Status</th>
+          <th style="min-width:110px">Contact Type</th>
+          <th style="min-width:120px">Last Contact</th>
+          <th style="min-width:130px">Next Follow-up</th>
+          <th style="min-width:110px">Assigned</th>
+          <th style="min-width:220px">Notes</th>
+          <th style="min-width:80px">Docs</th>
+          <th style="min-width:70px">Actions</th>
+        </tr></thead><tbody id="c-tbody"></tbody></table></div>
+      </div>
+      </div><!-- end client-records-view -->
+
+      <!-- History view -->
+      <div id="client-history-view" style="display:none">
+        <div class="filter-bar">
+          <input type="text" placeholder="🔍  Search history..." id="ch-search" oninput="renderClientHistory()">
+          <select id="ch-client-filter" onchange="renderClientHistory()"><option value="">All clients</option></select>
+          <select id="ch-status-filter" onchange="renderClientHistory()"><option value="">All statuses</option></select>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Client activity history</h3><span class="card-count" id="ch-count"></span></div>
+          <div class="tbl-wrap"><table class="tbl-freeze"><thead><tr>
+            <th style="min-width:80px">Client ID</th>
+            <th style="min-width:180px">Client Name</th>
+            <th style="min-width:150px">Timestamp</th>
+            <th style="min-width:110px">Status</th>
+            <th style="min-width:110px">Contact Type</th>
+            <th style="min-width:120px">Last Contact</th>
+            <th style="min-width:130px">Next Follow-up</th>
+            <th style="min-width:110px">Assigned</th>
+            <th style="min-width:220px">Notes</th>
+          </tr></thead><tbody id="ch-tbody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUOTATIONS -->
+    <div class="page" id="page-quotations">
+      <div class="stab-row">
+        <button class="stab active" onclick="setQuoteTab('pending',this)">Pending</button>
+        <button class="stab" onclick="setQuoteTab('released',this)">Released</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" placeholder="🔍  Search quotations..." id="q-search" oninput="renderQuotations()">
+        <select id="q-provider" onchange="renderQuotations()"><option value="">All providers</option></select>
+        <button class="btn no-print" onclick="exportQuotations()" title="Export visible rows to CSV">⬇ Export CSV</button>
+        <button class="btn btn-primary" onclick="openQuoteModal(null)">+ Add quotation</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3 id="q-tab-title">Pending quotations</h3><span class="card-count" id="q-count"></span></div>
+        <div class="tbl-wrap"><table><thead><tr>
+          <th>Quote ID</th><th>Client</th><th>Provider</th>
+          <th>Franchise date</th><th>Franchise end</th>
+          <th>Initial email</th><th>TAT</th><th>Status</th>
+          <th>Rates</th><th>TOR &amp; SOB</th><th>Follow-up</th><th>Actions</th>
+        </tr></thead><tbody id="q-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- COA -->
+    <div class="page" id="page-coa">
+      <div class="stab-row">
+        <button class="stab active" onclick="setCOATab('open',this)">Pending</button>
+        <button class="stab" onclick="setCOATab('done',this)">Completed</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" placeholder="🔍  Search tasks..." id="coa-search" oninput="renderCOA()">
+        <select id="coa-assigned" onchange="renderCOA()"><option value="">All assignees</option></select>
+        <select id="coa-type" onchange="renderCOA()"><option value="">All contact types</option></select>
+        <button class="btn no-print" onclick="exportCOA()" title="Export visible rows to CSV">⬇ Export CSV</button>
+        <button class="btn btn-primary" onclick="openCOAModal(null)">+ Add COA task</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3 id="coa-tab-title">Open COA tasks</h3><span class="card-count" id="coa-count"></span></div>
+        <div class="tbl-wrap"><table><thead><tr>
+          <th>Activity date</th><th>Client ID</th><th>Client</th><th>Contact type</th>
+          <th style="min-width:200px">Task</th><th>Assigned</th><th>Completed</th><th>Actions</th>
+        </tr></thead><tbody id="coa-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- RENEWALS -->
+    <div class="page" id="page-renewals">
+      <div class="metric-grid" id="ren-metrics"></div>
+      <div id="ren-summary"></div>
+      <div class="filter-bar">
+        <input type="text" placeholder="🔍  Search clients..." id="r-search" oninput="renderRenewals()">
+        <select id="r-urgency" onchange="renderRenewals()">
+          <option value="">All urgency levels</option>
+          <option value="expired">Expired</option>
+          <option value="critical">Critical (≤14 days)</option>
+          <option value="soon">Soon (15–30 days)</option>
+          <option value="upcoming">Upcoming (31–90 days)</option>
+          <option value="future">Future (90+ days)</option>
+          <option value="none">No renewal date</option>
+        </select>
+        <select id="r-assigned" onchange="renderRenewals()"><option value="">All assignees</option></select>
+        <button class="btn no-print" onclick="exportRenewals()" title="Export visible rows to CSV">⬇ Export CSV</button>
+        <button class="btn no-print" onclick="window.print()" title="Print renewal alerts report">🖨 Print</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Renewal tracker</h3><span class="card-count" id="r-count"></span></div>
+        <div class="tbl-wrap"><table><thead><tr>
+          <th>ID</th><th>Client</th><th>Current provider</th>
+          <th>Renewal date</th><th>Days to renewal</th>
+          <th>Urgency</th><th>Pipeline status</th><th>Assigned</th><th>Insurance</th>
+        </tr></thead><tbody id="r-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- PROVIDERS -->
+    <div class="page" id="page-providers">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+        <button class="btn btn-primary" onclick="openProviderModal(null)">+ Add provider</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Provider email contacts</h3></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Provider</th><th>Contact person</th><th>Honorifics</th><th>Email</th><th>CC</th><th>Actions</th></tr></thead><tbody id="prov-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- RELEASED QUOTATIONS -->
+    <div class="page" id="page-released">
+      <div class="filter-bar">
+        <input type="text" placeholder="🔍  Search released quotes..." id="rel-search" oninput="renderReleased()">
+        <select id="rel-provider" onchange="renderReleased()"><option value="">All providers</option></select>
+        <select id="rel-rates" onchange="renderReleased()"><option value="">All rates</option></select>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Released quotations</h3><span class="card-count" id="rel-count"></span></div>
+        <div class="tbl-wrap"><table class="tbl-freeze"><thead><tr>
+          <th>Quote ID</th><th>Client</th><th>Provider</th>
+          <th>Franchise Date</th><th>Franchise End</th><th>Initial Email</th>
+          <th>TAT</th><th>Date Released</th><th>Rates</th><th>TOR &amp; SOB</th><th>Requests</th>
+        </tr></thead><tbody id="rel-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- CLIENT HISTORY -->
+    <div class="page" id="page-client-history">
+      <div class="filter-bar">
+        <input type="text" placeholder="🔍  Search client history..." id="ch-search" oninput="renderClientHistory()">
+        <select id="ch-client" onchange="renderClientHistory()"><option value="">All clients</option></select>
+        <select id="ch-status" onchange="renderClientHistory()"><option value="">All statuses</option></select>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Client activity history</h3><span class="card-count" id="ch-count"></span></div>
+        <div class="tbl-wrap"><table class="tbl-freeze"><thead><tr>
+          <th>Client ID</th><th>Client Name</th><th>Timestamp</th><th>Contact Person</th>
+          <th>Status</th><th>Contact Type</th><th>Last Contact</th><th>Next Follow-up</th>
+          <th>Assigned</th><th>Provider</th><th>Notes</th>
+        </tr></thead><tbody id="ch-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- COA HISTORY -->
+    <div class="page" id="page-coa-history">
+      <div class="filter-bar">
+        <input type="text" placeholder="🔍  Search COA history..." id="coah-search" oninput="renderCOAHistory()">
+        <select id="coah-client" onchange="renderCOAHistory()"><option value="">All clients</option></select>
+        <select id="coah-assigned" onchange="renderCOAHistory()"><option value="">All assignees</option></select>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>COA task history</h3><span class="card-count" id="coah-count"></span></div>
+        <div class="tbl-wrap"><table><thead><tr>
+          <th>Timestamp</th><th>Activity Date</th><th>Client ID</th><th>Client Name</th>
+          <th>Contact Type</th><th>Task / Notes</th><th>Assigned</th><th>Sequence</th>
+        </tr></thead><tbody id="coah-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="page-settings">
+      <div class="settings-card">
+        <h3>Google Sheets connection</h3>
+        <p>Your Spreadsheet ID and OAuth Client ID are needed to read and write live data.</p>
+        <div id="conn-pill" class="not-connected-pill">not connected</div>
+        <div class="settings-row">
+          <div class="form-group">
+            <div class="form-label">Spreadsheet ID</div>
+            <input class="form-input" id="cfg-sheet-id" placeholder="Paste your Spreadsheet ID here">
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="form-group">
+            <div class="form-label">Google API Key (for reading)</div>
+            <input class="form-input" id="cfg-api-key" placeholder="AIza..." type="password">
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="form-group">
+            <div class="form-label">OAuth Client ID (for writing)</div>
+            <input class="form-input" id="cfg-client-id" placeholder="xxxx.apps.googleusercontent.com">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="btn btn-primary" onclick="saveConfig()">Save & connect</button>
+          <button class="btn" onclick="testConnection()">Test connection</button>
+        </div>
+        <div id="cfg-msg" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+      </div>
+      <div class="settings-card">
+        <h3>Team passcode</h3>
+        <p>Set a shared passcode your team uses to sign in manually (without Google OAuth).</p>
+        <div class="settings-row">
+          <div class="form-group">
+            <div class="form-label">Passcode</div>
+            <input class="form-input" id="cfg-passcode" type="password" placeholder="Set a team passcode">
+          </div>
+          <button class="btn btn-primary" onclick="savePasscode()" style="margin-bottom:0;height:34px">Save</button>
+        </div>
+        <div id="passcode-msg" style="font-size:12px;color:var(--text2)"></div>
+      </div>
+      <div class="settings-card">
+        <h3>Sheet names</h3>
+        <div class="form-grid">
+          <div class="form-group"><div class="form-label">Clients</div><input class="form-input" id="cfg-clients-sheet" value="Client"></div>
+          <div class="form-group"><div class="form-label">Quotations</div><input class="form-input" id="cfg-quotes-sheet" value="Quotations"></div>
+          <div class="form-group"><div class="form-label">COA</div><input class="form-input" id="cfg-coa-sheet" value="COA"></div>
+          <div class="form-group"><div class="form-label">Providers</div><input class="form-input" id="cfg-providers-sheet" value="ProviderEmails"></div>
+          <div class="form-group"><div class="form-label">Client History (ClientSummary)</div><input class="form-input" id="cfg-clientsummary-sheet" value="ClientSummary"></div>
+          <div class="form-group"><div class="form-label">COA History (COAHistory)</div><input class="form-input" id="cfg-coahistory-sheet" value="COAHistory"></div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:12px" onclick="saveSheetNames()">Save sheet names</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODALS -->
+<!-- Client Modal -->
+<div class="modal-overlay" id="client-modal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="cm-title">Add client</h3><button class="modal-close" onclick="closeModal('client-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><div class="form-label">Client name *</div><input class="form-input" id="f-name" placeholder="Company or organization name"></div>
+        <div class="form-group"><div class="form-label">Contact person</div><input class="form-input" id="f-contact"></div>
+        <div class="form-group"><div class="form-label">Mobile no.</div><input class="form-input" id="f-mobile"></div>
+        <div class="form-group"><div class="form-label">Email</div><input class="form-input" id="f-email" type="email"></div>
+        <div class="form-group"><div class="form-label">Business type</div>
+          <select class="form-select" id="f-biztype"><option value="">Select...</option><option>SME 5-99</option><option>Semi Large Private Company 100-499</option><option>Large Private Company 500 - 999</option><option>Jumbo Private Company 1000+</option><option>Cooperatives</option><option>Water Districts</option></select>
+        </div>
+        <div class="form-group"><div class="form-label">Type of insurance</div>
+          <select class="form-select" id="f-instype"><option value="">Select...</option><option>HMO</option><option>Life</option><option>Non-Life</option></select>
+        </div>
+        <div class="form-group" id="wrap-f-curprovider">
+          <div class="form-label">Current Provider</div>
+          <div id="f-curprovider" style="border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;max-height:140px;overflow-y:auto;background:var(--surface)">
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Maxicare" style="width:14px;height:14px"> Maxicare</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="iCare" style="width:14px;height:14px"> iCare</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Intellicare" style="width:14px;height:14px"> Intellicare</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Philcare" style="width:14px;height:14px"> Philcare</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Medicard" style="width:14px;height:14px"> Medicard</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="ValuCare" style="width:14px;height:14px"> ValuCare</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Kaizer" style="width:14px;height:14px"> Kaizer</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="OONA" style="width:14px;height:14px"> OONA</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="PhilBritish" style="width:14px;height:14px"> PhilBritish</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Pioneer" style="width:14px;height:14px"> Pioneer</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Bethel" style="width:14px;height:14px"> Bethel</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="AlliedBankers" style="width:14px;height:14px"> AlliedBankers</label>
+          </div>
+        </div>
+        <div class="form-group"><div class="form-label">Renewal date</div><input class="form-input" id="f-renewal" type="date"></div>
+        <div class="form-group" id="wrap-f-provider">
+          <div class="form-label">Provider (Target)</div>
+          <div id="f-provider" style="border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;max-height:140px;overflow-y:auto;background:var(--surface)">
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Maxicare" style="width:14px;height:14px"> Maxicare</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="iCare" style="width:14px;height:14px"> iCare</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Intellicare" style="width:14px;height:14px"> Intellicare</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Philcare" style="width:14px;height:14px"> Philcare</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Medicard" style="width:14px;height:14px"> Medicard</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="ValuCare" style="width:14px;height:14px"> ValuCare</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Kaizer" style="width:14px;height:14px"> Kaizer</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="OONA" style="width:14px;height:14px"> OONA</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="PhilBritish" style="width:14px;height:14px"> PhilBritish</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Pioneer" style="width:14px;height:14px"> Pioneer</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="Bethel" style="width:14px;height:14px"> Bethel</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="AlliedBankers" style="width:14px;height:14px"> AlliedBankers</label>
+          </div>
+        </div>
+        <div class="form-group"><div class="form-label">Status</div>
+          <select class="form-select" id="f-status"><option>Newly Contacted</option><option>Negotiation</option><option>For Quotation</option><option>For Presentation</option><option>Closing</option><option>Closed Won</option><option>Closed Lost</option></select>
+        </div>
+        <div class="form-group"><div class="form-label">Contact type</div>
+          <select class="form-select" id="f-contacttype"><option value="">Select...</option><option>Call/Text</option><option>Email</option><option>Visit/Meeting</option><option>Presentation</option></select>
+        </div>
+        <div class="form-group" id="wrap-f-assigned">
+          <div class="form-label">Assigned</div>
+          <div id="f-assigned" style="border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;max-height:140px;overflow-y:auto;background:var(--surface)">
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="JMEG" style="width:14px;height:14px"> JMEG</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="JJDD" style="width:14px;height:14px"> JJDD</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="JRBP" style="width:14px;height:14px"> JRBP</label><label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="RC" style="width:14px;height:14px"> RC</label>
+          </div>
+        </div>
+        <div class="form-group"><div class="form-label">Last contact date</div><input class="form-input" id="f-lastcontact" type="date"></div>
+        <div class="form-group"><div class="form-label">Next follow-up date</div><input class="form-input" id="f-followup" type="date"></div>
+        <div class="form-group full"><div class="form-label">Notes</div><textarea class="form-textarea" id="f-notes"></textarea></div>
+        <div class="form-group full"><div class="form-label">Client documentation (link)</div><input class="form-input" id="f-docs"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="modal-saving" id="cm-saving"></span>
+      <button class="btn" onclick="closeModal('client-modal')">Cancel</button>
+      <button class="btn btn-primary" id="cm-save-btn" onclick="saveClient()">Save client</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quotation Modal -->
+<div class="modal-overlay" id="quote-modal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="qm-title">Add quotation</h3><button class="modal-close" onclick="closeModal('quote-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><div class="form-label">Client ID</div><input class="form-input" id="qf-clientid" placeholder="C-0001"></div>
+        <div class="form-group"><div class="form-label">Client name *</div><input class="form-input" id="qf-client"></div>
+        <div class="form-group"><div class="form-label">Provider</div>
+          <select class="form-select" id="qf-provider"><option value="">Select...</option><option>Maxicare</option><option>iCare</option><option>Intellicare</option><option>Philcare</option><option>Medicard</option><option>ValuCare</option></select>
+        </div>
+        <div class="form-group"><div class="form-label">Rates</div>
+          <select class="form-select" id="qf-rates"><option value="">Select...</option><option>SME</option><option>Corporate</option></select>
+        </div>
+        <div class="form-group"><div class="form-label">Franchise date</div><input class="form-input" id="qf-fdate" type="date"></div>
+        <div class="form-group"><div class="form-label">Franchise ending date</div><input class="form-input" id="qf-fend" type="date"></div>
+        <div class="form-group"><div class="form-label">Initial email sent</div><input class="form-input" id="qf-email" type="date"></div>
+        <div class="form-group"><div class="form-label">Date released</div><input class="form-input" id="qf-released" type="date"></div>
+        <div class="form-group"><div class="form-label">TOR &amp; SOB</div>
+          <select class="form-select" id="qf-tor"><option value="">—</option><option value="Y">Y</option><option value="N">N</option></select>
+        </div>
+        <div class="form-group"><div class="form-label">Follow-up date</div><input class="form-input" id="qf-followup" type="date"></div>
+        <div class="form-group full"><div class="form-label">Special requests</div><textarea class="form-textarea" id="qf-requests"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="modal-saving" id="qm-saving"></span>
+      <button class="btn" onclick="closeModal('quote-modal')">Cancel</button>
+      <button class="btn btn-primary" id="qm-save-btn" onclick="saveQuotation()">Save quotation</button>
+    </div>
+  </div>
+</div>
+
+<!-- COA Modal -->
+<div class="modal-overlay" id="coa-modal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="coam-title">Add COA task</h3><button class="modal-close" onclick="closeModal('coa-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><div class="form-label">Activity date *</div><input class="form-input" id="cf-date" type="date"></div>
+        <div class="form-group">
+          <div class="form-label">Client ID</div>
+          <select class="form-select" id="cf-clientid" onchange="coaClientIdChanged()">
+            <option value="">— Non-client task —</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <div class="form-label">Client name</div>
+          <input class="form-input" id="cf-client" placeholder="Auto-filled when Client ID is selected" readonly style="background:var(--surface2);color:var(--text2)">
+        </div>
+        <div class="form-group"><div class="form-label">Contact type</div>
+          <select class="form-select" id="cf-type"><option value="">Select...</option><option>Call/Text</option><option>Email</option><option>Visit/Meeting</option><option>Presentation</option></select>
+        </div>
+        <div class="form-group"><div class="form-label">Assigned</div>
+          <div id="cf-assigned" style="border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;background:var(--surface)">
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="JMEG" style="width:14px;height:14px"> JMEG</label>
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="JJDD" style="width:14px;height:14px"> JJDD</label>
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="JRBP" style="width:14px;height:14px"> JRBP</label>
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="RC" style="width:14px;height:14px"> RC</label>
+          </div>
+        </div>
+        <div class="form-group full"><div class="form-label">Task *</div><textarea class="form-textarea" id="cf-task"></textarea></div>
+        <div class="form-group"><div class="form-label">Date completed</div><input class="form-input" id="cf-completed" type="date"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="modal-saving" id="coam-saving"></span>
+      <button class="btn" onclick="closeModal('coa-modal')">Cancel</button>
+      <button class="btn btn-primary" id="coam-save-btn" onclick="saveCOA()">Save task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Provider Modal -->
+<div class="modal-overlay" id="provider-modal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="pm-title">Add provider</h3><button class="modal-close" onclick="closeModal('provider-modal')">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><div class="form-label">Provider name *</div><input class="form-input" id="pf-provider"></div>
+        <div class="form-group"><div class="form-label">Honorifics</div><input class="form-input" id="pf-honorifics" placeholder="Ms. / Mr."></div>
+        <div class="form-group"><div class="form-label">Contact person</div><input class="form-input" id="pf-contact"></div>
+        <div class="form-group"><div class="form-label">Email</div><input class="form-input" id="pf-email" type="email"></div>
+        <div class="form-group full"><div class="form-label">CC</div><input class="form-input" id="pf-cc" placeholder="email1@..., email2@..."></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="modal-saving" id="pm-saving"></span>
+      <button class="btn" onclick="closeModal('provider-modal')">Cancel</button>
+      <button class="btn btn-primary" id="pm-save-btn" onclick="saveProvider()">Save provider</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+const _exportData = { clients: [], quotations: [], coa: [], renewals: [] };
+const STATUSES = ['Newly Contacted','Negotiation','For Quotation','For Presentation','Closing','Closed Won','Closed Lost'];
+
+// ── PASSCODE: stored only in localStorage, never hardcoded here ──
+// Set via Settings > Team passcode. Default is empty — admin must configure it on first run.
+let CFG = { sheetId:'', apiKey:'', clientId:'', clientsSheet:'Client', quotesSheet:'Quotations', coaSheet:'COA', providersSheet:'ProviderEmails', passcode:'' };
+let AUTH = { token: null, user: null, name: '', signedIn: false };
+let CLIENTS=[], QUOTATIONS=[], COA_DATA=[], PROVIDERS=[], CLIENT_HISTORY=[], COA_HISTORY=[];
+let coaTab='open', clientTab='active', quoteTab='pending', editClientIdx=null, editQuoteIdx=null, editCOAIdx=null, editProviderIdx=null;
+
+// ── LOAD CONFIG ──
+function loadCFG(){
+  try { const s=localStorage.getItem('strata_cfg2'); if(s) CFG={...CFG,...JSON.parse(s)}; } catch(e){}
+  document.getElementById('cfg-sheet-id').value=CFG.sheetId;
+  document.getElementById('cfg-api-key').value=CFG.apiKey||'';
+  document.getElementById('cfg-client-id').value=CFG.clientId||'';
+  document.getElementById('cfg-clients-sheet').value=CFG.clientsSheet;
+  document.getElementById('cfg-quotes-sheet').value=CFG.quotesSheet;
+  document.getElementById('cfg-coa-sheet').value=CFG.coaSheet;
+  document.getElementById('cfg-providers-sheet').value=CFG.providersSheet;
+  document.getElementById('cfg-passcode').value=CFG.passcode||'';
+  if(document.getElementById('cfg-clientsummary-sheet')) document.getElementById('cfg-clientsummary-sheet').value=CFG.clientSummarySheet||'ClientSummary';
+  if(document.getElementById('cfg-coahistory-sheet')) document.getElementById('cfg-coahistory-sheet').value=CFG.coaHistorySheet||'COAHistory';
+  // inject OAuth client ID into GSI
+  const gsiDiv=document.getElementById('g_id_onload');
+  if(gsiDiv&&CFG.clientId) gsiDiv.setAttribute('data-client_id', CFG.clientId);
+}
+function saveConfig(){
+  CFG.sheetId=document.getElementById('cfg-sheet-id').value.trim();
+  CFG.apiKey=document.getElementById('cfg-api-key').value.trim();
+  CFG.clientId=document.getElementById('cfg-client-id').value.trim();
+  localStorage.setItem('strata_cfg2',JSON.stringify(CFG));
+  document.getElementById('cfg-msg').textContent='✓ Config saved. Click « Sync » then « Grant write access ».';
+  updateConnPill(false);
+  // Re-init token client with new Client ID
+  _tokenClient = null;
+  maybeInitTokenClient();
+}
+function saveSheetNames(){
+  CFG.clientsSheet=document.getElementById('cfg-clients-sheet').value.trim()||'Client';
+  CFG.quotesSheet=document.getElementById('cfg-quotes-sheet').value.trim()||'Quotations';
+  CFG.coaSheet=document.getElementById('cfg-coa-sheet').value.trim()||'COA';
+  CFG.providersSheet=document.getElementById('cfg-providers-sheet').value.trim()||'ProviderEmails';
+  CFG.clientSummarySheet=document.getElementById('cfg-clientsummary-sheet').value.trim()||'ClientSummary';
+  CFG.coaHistorySheet=document.getElementById('cfg-coahistory-sheet').value.trim()||'COAHistory';
+  localStorage.setItem('strata_cfg2',JSON.stringify(CFG));
+  toast('Sheet names saved','success');
+}
+function savePasscode(){
+  CFG.passcode=document.getElementById('cfg-passcode').value.trim();
+  localStorage.setItem('strata_cfg2',JSON.stringify(CFG));
+  document.getElementById('passcode-msg').textContent='✓ Passcode saved.';
+}
+function updateConnPill(ok){
+  const p=document.getElementById('conn-pill');
+  p.className=ok?'connected-pill':'not-connected-pill';
+  p.textContent=ok?'connected':'not connected';
+}
+async function testConnection(){
+  try { await fetchSheet(CFG.clientsSheet); document.getElementById('cfg-msg').textContent='✓ Connection successful!'; updateConnPill(true); }
+  catch(e){ document.getElementById('cfg-msg').textContent='✗ '+e.message; }
+}
+
+// ── AUTH ──
+function handleGoogleSignIn(response){
+  const payload = parseJwt(response.credential);
+  AUTH.token = response.credential;
+  AUTH.user = payload.email;
+  AUTH.name = payload.name;
+  AUTH.signedIn = true;
+  localStorage.setItem('strata_auth', JSON.stringify({name:AUTH.name, user:AUTH.user}));
+  launchApp();
+}
+function manualSignIn(){
+  const name=document.getElementById('manual-name').value.trim();
+  const code=document.getElementById('manual-code').value.trim();
+  const err=document.getElementById('login-error');
+  if(!name){ err.textContent='Please enter your name.'; return; }
+  if(!CFG.passcode){
+    // No passcode configured yet — allow first-run access so admin can set up Settings
+    err.style.color='var(--accent2)';
+    err.textContent='First run: no passcode set. Go to Settings after login to configure.';
+    AUTH.name=name; AUTH.user='manual'; AUTH.signedIn=true;
+    localStorage.setItem('strata_auth', JSON.stringify({name, user:'manual'}));
+    launchApp();
+    return;
+  }
+  if(code !== CFG.passcode){ err.textContent='Incorrect passcode. Please try again.'; return; }
+  AUTH.name=name; AUTH.user='manual'; AUTH.signedIn=true;
+  localStorage.setItem('strata_auth', JSON.stringify({name, user:'manual'}));
+  launchApp();
+}
+function parseJwt(token){ try { return JSON.parse(atob(token.split('.')[1])); } catch(e){ return {}; } }
+function signOut(){
+  AUTH={token:null,user:null,name:'',signedIn:false};
+  localStorage.removeItem('strata_auth');
+  document.getElementById('main-app').style.display='none';
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('manual-name').value='';
+  document.getElementById('manual-code').value='';
+  document.getElementById('login-error').textContent='';
+}
+function launchApp(){
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('main-app').style.display='flex';
+  document.getElementById('user-name').textContent=AUTH.name;
+  document.getElementById('user-role').textContent=AUTH.user==='manual'?'Team member':'Google account';
+  const av=document.getElementById('user-avatar');
+  av.textContent=AUTH.name.charAt(0).toUpperCase();
+  loadLocalData();
+  renderAll();
+  if(CFG.apiKey) syncAll();
+}
+function checkSession(){
+  loadCFG();
+  try {
+    const s=JSON.parse(localStorage.getItem('strata_auth'));
+    if(s&&s.name){ AUTH.name=s.name; AUTH.user=s.user||'manual'; AUTH.signedIn=true; launchApp(); return; }
+  } catch(e){}
+  // not signed in, show login
+}
+
+// ── GOOGLE SHEETS API ──
+async function fetchSheet(sheetName){
+  if(!CFG.sheetId||!CFG.apiKey) throw new Error('No API key or Sheet ID configured. Go to Settings.');
+  const range=encodeURIComponent(`${sheetName}!A1:S2000`);
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/${range}?key=${CFG.apiKey}`;
+  const res=await fetch(url);
+  if(!res.ok){ const e=await res.json(); throw new Error(e.error?.message||res.statusText); }
+  return (await res.json()).values||[];
+}
+
+async function writeSheet(sheetName, values){
+  // Uses gapi if available (OAuth), falls back to local-only
+  if(!CFG.sheetId) throw new Error('No Sheet ID configured.');
+  if(!window.gapi||!gapi.client) throw new Error('OAuth not initialized. Make sure your Client ID is set in Settings and reload.');
+  const range=`${sheetName}!A1`;
+  await gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId: CFG.sheetId,
+    range,
+    valueInputOption: 'USER_ENTERED',
+    resource: { values }
+  });
+}
+
+async function appendToSheet(sheetName, row){
+  if(!CFG.sheetId) throw new Error('No Sheet ID configured.');
+  if(!window.gapi||!gapi.client) throw new Error('OAuth not initialized.');
+  const token = gapi.client.getToken ? gapi.client.getToken() : null;
+  if(!token||!token.access_token) throw new Error('NO_TOKEN');
+  await gapi.client.sheets.spreadsheets.values.append({
+    spreadsheetId: CFG.sheetId,
+    range: `${sheetName}!A1`,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    resource: { values: [row] }
+  });
+}
+
+async function updateSheetRow(sheetName, rowIndex, row){
+  if(!CFG.sheetId) throw new Error('No Sheet ID configured.');
+  if(!window.gapi||!gapi.client) throw new Error('OAuth not initialized.');
+  const range=`${sheetName}!A${rowIndex}`;
+  await gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId: CFG.sheetId,
+    range,
+    valueInputOption: 'USER_ENTERED',
+    resource: { values: [row] }
+  });
+}
+
+// ── OAUTH & GAPI ──
+// Two libs load independently: gapi (apis.google.com/js/api.js) and GSI (accounts.google.com/gsi/client)
+// We track both and only init tokenClient when both are ready.
+let _gapiClientReady = false;
+let _gsiReady = false;
+let _tokenClient = null;
+let _pendingWrite = null;
+
+// Called when apis.google.com/js/api.js loads
+function gapiLoaded(){
+  gapi.load('client', async ()=>{
+    try {
+      await gapi.client.init({
+        apiKey: CFG.apiKey || '',
+        discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4']
+      });
+      _gapiClientReady = true;
+      console.log('gapi client ready');
+      maybeInitTokenClient();
+    } catch(e){
+      console.error('gapi.client.init error:', e);
+    }
+  });
+}
+
+// Called when accounts.google.com/gsi/client loads (via onload on script tag)
+function gsiLoaded(){
+  _gsiReady = true;
+  console.log('GSI library loaded via onload');
+  maybeInitTokenClient();
+}
+
+// Fallback: poll for google.accounts in case onload didn't fire
+function pollForGSI(){
+  if(window.google && window.google.accounts && window.google.accounts.oauth2){
+    if(!_gsiReady){
+      console.log('GSI detected via polling');
+      _gsiReady = true;
+      maybeInitTokenClient();
+    }
+  } else {
+    setTimeout(pollForGSI, 300);
+  }
+}
+
+function maybeInitTokenClient(){
+  // Also check directly if google.accounts is available regardless of flag
+  if(window.google && window.google.accounts && window.google.accounts.oauth2){
+    _gsiReady = true;
+  }
+  if(window.gapi && window.gapi.client){
+    _gapiClientReady = true;
+  }
+  if(!_gapiClientReady || !_gsiReady) return;
+  if(!CFG.clientId){
+    console.log('No Client ID yet — skipping tokenClient init');
+    return;
+  }
+  if(_tokenClient) return; // already initialized
+  try {
+    _tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CFG.clientId,
+      scope: 'https://www.googleapis.com/auth/spreadsheets',
+      callback: (resp)=>{
+        if(resp.error){
+          toast('OAuth error: ' + resp.error + (resp.error_description ? ' — '+resp.error_description : ''), 'error');
+          return;
+        }
+        gapi.client.setToken(resp);
+        toast('Write access granted ✓ Saves will now go to Google Sheets.','success');
+        setSyncStatus('live');
+        if(_pendingWrite){ _pendingWrite(); _pendingWrite=null; }
+      }
+    });
+    console.log('tokenClient initialized:', CFG.clientId.substring(0,20)+'...');
+  } catch(e){
+    console.error('initTokenClient error:', e);
+    toast('OAuth init error: ' + e.message, 'error');
+  }
+}
+
+function initGapi(){ /* legacy compat — handled by gapiLoaded/gsiLoaded */ }
+
+function requestWriteAccess(pendingFn){
+  if(!CFG.clientId){
+    toast('OAuth Client ID missing — go to ⚙ Settings and paste your Client ID.','error');
+    showPage('settings', document.querySelectorAll('.nav-item')[6]);
+    return false;
+  }
+  // Always try to init before checking flags — handles race conditions
+  maybeInitTokenClient();
+  if(!_gapiClientReady){
+    toast('Google API library not ready. Check your internet connection and refresh.','error');
+    return false;
+  }
+  if(!_gsiReady){
+    toast('Google Sign-In library not ready. Check your internet connection and refresh.','error');
+    return false;
+  }
+  if(!_tokenClient){
+    toast('OAuth could not start. Verify your Client ID ends with .apps.googleusercontent.com','error');
+    return false;
+  }
+  if(pendingFn) _pendingWrite = pendingFn;
+  const hasToken = gapi.client.getToken && gapi.client.getToken();
+  _tokenClient.requestAccessToken({prompt: hasToken ? '' : 'consent'});
+  return true;
+}
+
+// ── SYNC ──
+async function syncAll(){
+  if(!CFG.apiKey){ toast('Add your API key in Settings first.','error'); return; }
+  const btn=document.getElementById('sync-btn');
+  btn.disabled=true; btn.textContent='↻ Syncing...';
+  setSyncStatus('syncing');
+  try {
+    const [c,q,coa,p,ch,coah]=await Promise.all([
+      fetchSheet(CFG.clientsSheet),fetchSheet(CFG.quotesSheet),
+      fetchSheet(CFG.coaSheet),fetchSheet(CFG.providersSheet),
+      fetchSheet(CFG.clientSummarySheet||'ClientSummary'),
+      fetchSheet(CFG.coaHistorySheet||'COAHistory'),
+    ]);
+    const freshClients=parseClients(c);
+    // Preserve locally saved docs links if sheet doesn't have them yet
+    const localClientsMap={};
+    CLIENTS.forEach(lc=>{ if(lc.id) localClientsMap[lc.id]=lc; });
+    CLIENTS=freshClients.map(fc=>{
+      const local=localClientsMap[fc.id];
+      if(local&&!fc.docs&&local.docs) fc.docs=local.docs;
+      return fc;
+    }); QUOTATIONS=parseQuotes(q); COA_DATA=parseCOA(coa); PROVIDERS=parseProviders(p);
+    try{ CLIENT_HISTORY=parseClientHistory(ch); }catch(e){ CLIENT_HISTORY=[]; console.warn('ClientSummary parse error:',e); }
+    try{ COA_HISTORY=parseCOAHistory(coah); }catch(e){ COA_HISTORY=[]; console.warn('COAHistory parse error:',e); }
+    saveLocalData();
+    updateConnPill(true);
+    setSyncStatus('live');
+    toast(`Synced: ${CLIENTS.length} clients, ${QUOTATIONS.length} quotes, ${COA_DATA.length} COA tasks`,'success');
+    renderAll();
+  } catch(e){
+    setSyncStatus('error');
+    toast('Sync failed: '+e.message,'error');
+  }
+  btn.disabled=false; btn.textContent='↻ Sync from Google Sheets';
+}
+
+function setSyncStatus(s){
+  const el=document.getElementById('sync-status');
+  if(s==='live'){el.className='sync-status live';el.textContent='● live · Google Sheets';}
+  else if(s==='syncing'){el.className='sync-status';el.textContent='↻ syncing...';}
+  else if(s==='saving'){el.className='sync-status saving';el.textContent='↑ saving...';}
+  else if(s==='error'){el.className='sync-status error';el.textContent='✗ error';}
+  else{el.className='sync-status';el.textContent='● not synced';}
+}
+
+// ── PARSERS ──
+function r2o(h,r){const o={};h.forEach((k,i)=>o[k]=r[i]||'');return o;}
+function fdi(s){if(!s)return'';const d=new Date(s);return isNaN(d)?'':d.toISOString().split('T')[0];}
+
+function parseClients(rows){
+  if(rows.length<2)return[];
+  const h=rows[0];
+  console.log('[Strata CRM] Client sheet headers:', JSON.stringify(h));
+  // Find the docs column - try multiple possible header names
+  const docsHeader = h.find(hdr=>
+    ['client documentation','client docs','documentation','google drive link',
+     'drive link','client doc','docs'].includes(String(hdr||'').trim().toLowerCase())
+  );
+  const docsIdx = docsHeader ? h.indexOf(docsHeader) : -1;
+  console.log('[Strata CRM] Docs column header found:', docsHeader, 'at index:', docsIdx);
+  return rows.slice(1).filter(r=>r[0]&&r[1]).map(r=>{const o=r2o(h,r);return{id:o['Client ID'],name:o['Client Name'],contact:o['Contact Person'],mobile:o['Mobile No.'],email:o['Email'],bizType:o['Business Type'],insType:o['Type of Insurance'],currentProvider:o['Current Provider'],renewal:fdi(o['Renewal Date']),provider:o['Provider'],status:o['Status'],contactType:o['Contact Type'],lastContact:fdi(o['Last Contact Date']),nextFollowUp:fdi(o['Next Follow-up Date']),assigned:o['Assigned'],notes:o['Notes'],docs:(docsIdx>=0?String(r[docsIdx]||''):''),_row:rows.indexOf(r)+1};});
+}
+function parseQuotes(rows){
+  if(rows.length<2)return[];
+  const h=rows[0];
+  return rows.slice(1).filter(r=>r[0]).map(r=>{const o=r2o(h,r);return{id:o['Quote ID'],clientId:o['Client ID'],client:o['Client Name'],provider:o['Provider'],franchiseDate:fdi(o['Franchise Date']),franchiseEnd:fdi(o['Franchise Ending Date']),initialEmail:fdi(o['Initial Email Sent']),tat:fdi(o['Turnaround Time']),status:o['Status'],dateReleased:fdi(o['Date Released']),rates:o['Rates'],torSob:o['TOR & SOB (Y/N)'],requests:o['Requests'],threadId:o['Email Thread ID'],followUp:fdi(o['Follow-up Date']),_row:rows.indexOf(r)+1};});
+}
+function parseCOA(rows){
+  if(rows.length<2)return[];
+  const h=rows[0];
+  return rows.slice(1).filter(r=>r[0]&&r[4]).map(r=>{const o=r2o(h,r);return{date:fdi(o['Activity Date']),clientId:o['Client ID'],client:o['Client Name'],contactType:o['Contact Type'],task:o['Task'],assigned:o['Assigned'],completed:fdi(o['Date Completed']),_row:rows.indexOf(r)+1};});
+}
+function parseClientHistory(rows){
+  if(rows.length<2)return[];
+  const h=rows[0];
+  return rows.slice(1).filter(r=>r[0]&&r[1]).map(r=>{
+    const o=r2o(h,r);
+    return{
+      timestamp:o['Activity Timestamp']||o['Timestamp']||'',
+      clientId:o['Client ID']||'',
+      client:o['Client Name']||'',
+      contact:o['Contact Person']||'',
+      mobile:o['Mobile No.']||'',
+      email:o['Email']||'',
+      bizType:o['Business Type']||'',
+      insType:o['Type of Insurance']||'',
+      currentProvider:o['Current Provider']||'',
+      renewal:fdi(o['Renewal Date']),
+      provider:o['Provider']||'',
+      status:o['Status']||'',
+      contactType:o['Contact Type']||'',
+      lastContact:fdi(o['Last Contact Date']),
+      nextFollowUp:fdi(o['Next Follow-up Date']),
+      assigned:o['Assigned']||'',
+      notes:o['Notes']||'',
+      summary:o['Client Summary']||'',
+    };
+  }).reverse();
+}
+
+function parseCOAHistory(rows){
+  if(rows.length<2)return[];
+  const h=rows[0];
+  return rows.slice(1).filter(r=>r[0]).map(r=>{
+    const o=r2o(h,r);
+    return{
+      timestamp:o['Timestamp']||'',
+      activityDate:fdi(o['Activity Date']),
+      clientId:o['Client ID']||'',
+      client:o['Client Name']||'',
+      contactType:o['Contact Type']||'',
+      task:o['Task']||'',
+      assigned:o['Assigned']||'',
+      processed:o['Processed']||'',
+      sequence:o['Sequence']||'',
+    };
+  }).reverse();
+}
+
+function parseProviders(rows){
+  if(rows.length<2)return[];
+  const h=rows[0];
+  return rows.slice(1).filter(r=>r[0]).map(r=>{const o=r2o(h,r);return{provider:o['Provider'],email:o['Email'],honorifics:o['Honorifics'],contact:o['Contact Person'],cc:o['CC'],_row:rows.indexOf(r)+1};});
+}
+
+// ── LOCAL CACHE ──
+function saveLocalData(){ try{localStorage.setItem('strata_data2',JSON.stringify({CLIENTS,QUOTATIONS,COA_DATA,PROVIDERS,CLIENT_HISTORY,COA_HISTORY}));}catch(e){} }
+function loadLocalData(){ try{const d=JSON.parse(localStorage.getItem('strata_data2'));if(d&&d.CLIENTS){CLIENTS=d.CLIENTS;QUOTATIONS=d.QUOTATIONS;COA_DATA=d.COA_DATA;PROVIDERS=d.PROVIDERS;CLIENT_HISTORY=d.CLIENT_HISTORY||[];COA_HISTORY=d.COA_HISTORY||[];return true;}}catch(e){}loadSampleData();return false; }
+
+function loadSampleData(){
+  CLIENTS=[
+    {id:'C-0001',name:'University San Agustin - Iloilo',contact:'Atty. Ela Tan, CPA, MBA',mobile:'',email:'elalopez@usa.edu.ph',bizType:'Semi Large Private Company 100-499',insType:'HMO',currentProvider:'Maxicare',renewal:'2026-06-01',provider:'iCare',status:'For Presentation',contactType:'Email',lastContact:'2026-05-04',nextFollowUp:'2026-05-11',assigned:'JMEG',notes:'Sent email regarding concerns of the committee to iCare team',docs:''},
+    {id:'C-0002',name:'Pueblo de Panay, Inc.',contact:'Melanie Camacho',mobile:'',email:'melanie.camacho@pueblodepanay.com',bizType:'SME 5-99',insType:'HMO',currentProvider:'',renewal:'2026-04-30',provider:'Maxicare',status:'Negotiation',contactType:'Email',lastContact:'2026-04-29',nextFollowUp:'2026-05-06',assigned:'JMEG, JRBP',notes:'Will get back to them on Feb 1, 2027',docs:''},
+    {id:'C-0003',name:'CPU',contact:'Dr. Darril Pamocol',mobile:'033 330 7200 Local 1035',email:'hr@cpu.edu.ph',bizType:'Large Private Company 500 - 999',insType:'HMO',currentProvider:'Maxicare',renewal:'2026-06-01',provider:'iCare',status:'Negotiation',contactType:'Visit/Meeting',lastContact:'2026-05-05',nextFollowUp:'2026-05-12',assigned:'JMEG, JJDD',notes:'Meeting with Union Presidents together with Maxicare Team',docs:''},
+    {id:'C-0005',name:'Cyneth Health',contact:'Mart Ronel Cataytay',mobile:'',email:'hr.ph@cynetcorp.com',bizType:'Semi Large Private Company 100-499',insType:'HMO',currentProvider:'Intellicare',renewal:'2026-05-23',provider:'',status:'For Quotation',contactType:'Call/Text',lastContact:'2026-05-05',nextFollowUp:'2026-05-14',assigned:'',notes:'Sent email requesting updated proposal for Philcare quotation',docs:''},
+    {id:'C-0009',name:'IBC - International Builders Corp',contact:'Aileen Tan-Lim',mobile:'09989618589',email:'lgudarido@ibcphil.com.ph',bizType:'Jumbo Private Company 1000+',insType:'HMO',currentProvider:'Intellicare',renewal:'2026-05-31',provider:'',status:'Negotiation',contactType:'Visit/Meeting',lastContact:'2026-04-22',nextFollowUp:'2026-04-29',assigned:'',notes:'VISITED TO PERSONALLY FOLLOW UP NDA AND PCAF',docs:''},
+  ];
+  QUOTATIONS=[
+    {id:'Q-0003',clientId:'C-0002',client:'Pueblo de Panay, Inc.',provider:'Maxicare',franchiseDate:'',franchiseEnd:'',initialEmail:'',tat:'',status:'No Email Sent',dateReleased:'',rates:'SME',torSob:'N',requests:'',threadId:'',followUp:''},
+    {id:'Q-0004',clientId:'C-0003',client:'CPU',provider:'iCare',franchiseDate:'2026-04-30',franchiseEnd:'2026-06-30',initialEmail:'2026-05-11',tat:'2026-05-20',status:'Within TAT',dateReleased:'',rates:'Corporate',torSob:'Y',requests:'',threadId:'',followUp:''},
+  ];
+  COA_DATA=[
+    {date:'2026-04-28',clientId:'',client:'',contactType:'Visit/Meeting',task:'Submit pending findings business permit',assigned:'JJDD',completed:''},
+    {date:'2026-05-04',clientId:'C-0003',client:'CPU',contactType:'Visit/Meeting',task:'Print AOR for Philcare x CPU',assigned:'JMEG',completed:''},
+    {date:'2026-05-14',clientId:'C-0003',client:'CPU',contactType:'Visit/Meeting',task:'Presentation of Maxicare proposed over via Zoom',assigned:'JMEG, JJDD',completed:''},
+  ];
+  PROVIDERS=[
+    {provider:'iCare',contact:'Karen B. Gutierrez',honorifics:'Ms.',email:'kbgutierrez@icare.com.ph',cc:'mikkogarin.stratagroup@gmail.com, stratagroupsolutions@gmail.com'},
+    {provider:'Philcare',contact:'MATTHEW O. IGNACIO',honorifics:'Mr.',email:'Matthew.Ignacio@philcare.com.ph',cc:'mikkogarin.stratagroup@gmail.com, stratagroupsolutions@gmail.com'},
+    {provider:'Maxicare',contact:'Majal Roa',honorifics:'Ms.',email:'majal.roa@maxicare.com.ph',cc:'mikkogarin.stratagroup@gmail.com, stratagroupsolutions@gmail.com'},
+  ];
+}
+
+// ── HELPERS ──
+function pd(s){if(!s)return null;const d=new Date(s);return isNaN(d)?null:d;}
+function dd(d){if(!d)return null;return Math.floor((d-TODAY)/86400000);}
+function fmt(d){if(!d)return'—';const dt=typeof d==='string'?new Date(d):d;if(!dt||isNaN(dt))return'—';return dt.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});}
+function urg(days){
+  if(days===null)return{label:'No date',cls:'badge-gray',cat:'none',color:'#a8a89e'};
+  if(days<0)return{label:'Expired',cls:'badge-red',cat:'expired',color:'#c0392b'};
+  if(days<=14)return{label:'Critical',cls:'badge-red',cat:'critical',color:'#e74c3c'};
+  if(days<=30)return{label:'Soon',cls:'badge-amber',cat:'soon',color:'#b35c00'};
+  if(days<=90)return{label:'Upcoming',cls:'badge-blue',cat:'upcoming',color:'#1a4f7a'};
+  return{label:'Future',cls:'badge-green',cat:'future',color:'#1e5c35'};
+}
+function stBadge(s){const m={'Newly Contacted':'badge-gray','Negotiation':'badge-blue','For Quotation':'badge-amber','For Presentation':'badge-purple','Closing':'badge-teal','Closed Won':'badge-green','Closed Lost':'badge-red'};return`<span class="badge ${m[s]||'badge-gray'}">${s||'—'}</span>`;}
+function qBadge(s){const m={'Released':'badge-green','Within TAT':'badge-teal','For Follow-Up':'badge-amber','Overdue':'badge-red','No Email Sent':'badge-gray','Franchise Expired':'badge-red'};const k=Object.keys(m).find(k=>s&&s.includes(k));return`<span class="badge ${k?m[k]:'badge-gray'}">${s||'—'}</span>`;}
+function fcClass(d){if(!d)return'';const diff=dd(new Date(d));return diff<0?'overdue':diff<=2?'warn-date':'';}
+function daysCell(days){if(days===null)return`<span style="color:#a8a89e">—</span>`;const u=urg(days);const bw=days<0?80:Math.min(80,Math.max(4,Math.round((1-(days/365))*80)));return`<div class="days-wrap"><span class="days-val" style="color:${u.color}">${days<0?'-':''}${Math.abs(days)}d</span><div class="days-bar" style="width:${bw}px;background:${u.color}"></div><span class="days-sub">${days<0?`${Math.abs(days)}d overdue`:`${days}d left`}</span></div>`;}
+function noData(n){return`<tr><td colspan="${n}"><div class="empty">No records found</div></td></tr>`;}
+function nextClientID(){const ids=CLIENTS.map(c=>parseInt(c.id.replace('C-',''))||0);return`C-${String(Math.max(0,...ids)+1).padStart(4,'0')}`;}
+function nextQuoteID(){const ids=QUOTATIONS.map(q=>parseInt(q.id.replace('Q-',''))||0);return`Q-${String(Math.max(0,...ids)+1).padStart(4,'0')}`;}
+function initOpts(id,vals){const s=document.getElementById(id);if(!s||s.options.length>1)return;vals.forEach(v=>{const o=document.createElement('option');o.value=v;o.text=v;s.add(o);});}
+
+// ── MULTI-CHECKBOX HELPERS ──
+function getChecked(id){
+  return Array.from(document.querySelectorAll(`#${id} input[type=checkbox]:checked`)).map(cb=>cb.value).join(', ');
+}
+function setChecked(id, val){
+  const vals=(val||'').split(',').map(v=>v.trim()).filter(Boolean);
+  document.querySelectorAll(`#${id} input[type=checkbox]`).forEach(cb=>{
+    cb.checked=vals.includes(cb.value);
+  });
+}
+function clearChecked(id){
+  document.querySelectorAll(`#${id} input[type=checkbox]`).forEach(cb=>cb.checked=false);
+}
+
+// ── TOAST ──
+function toast(msg, type=''){
+  const w=document.getElementById('toast-wrap');
+  const t=document.createElement('div');
+  t.className=`toast ${type}`; t.textContent=msg;
+  w.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(()=>t.remove(),300);},3000);
+}
+
+// ── NAV ──
+// ── RELEASED QUOTATIONS ──
+function renderReleased(){
+  const released=QUOTATIONS.filter(q=>q.status==='Released');
+  initOpts('rel-provider',[...new Set(released.map(q=>q.provider).filter(Boolean))]);
+  initOpts('rel-rates',[...new Set(released.map(q=>q.rates).filter(Boolean))]);
+  const q=(document.getElementById('rel-search').value||'').toLowerCase();
+  const pf=document.getElementById('rel-provider').value;
+  const rf=document.getElementById('rel-rates').value;
+  const f=released.filter(qt=>{
+    if(q&&!qt.client.toLowerCase().includes(q)&&!qt.id.toLowerCase().includes(q)&&!qt.provider.toLowerCase().includes(q))return false;
+    if(pf&&qt.provider!==pf)return false;
+    if(rf&&qt.rates!==rf)return false;
+    return true;
+  });
+  document.getElementById('rel-count').textContent=`${f.length} of ${released.length}`;
+  document.getElementById('rel-tbody').innerHTML=f.length?f.map(qt=>`<tr>
+    <td class="td-mono" style="white-space:nowrap">${qt.id}</td>
+    <td class="td-bold" style="min-width:160px" title="${qt.client}">${qt.client}</td>
+    <td style="white-space:nowrap">${qt.provider||'—'}</td>
+    <td style="white-space:nowrap">${fmt(qt.franchiseDate)}</td>
+    <td style="white-space:nowrap">${fmt(qt.franchiseEnd)}</td>
+    <td style="white-space:nowrap">${fmt(qt.initialEmail)}</td>
+    <td style="white-space:nowrap">${fmt(qt.tat)}</td>
+    <td style="white-space:nowrap">${fmt(qt.dateReleased)}</td>
+    <td style="white-space:nowrap">${qt.rates||'—'}</td>
+    <td style="white-space:nowrap">${qt.torSob||'—'}</td>
+    <td style="min-width:160px;white-space:normal;font-size:12px">${qt.requests||'—'}</td>
+  </tr>`).join(''):noData(11);
+}
+
+// ── CLIENT HISTORY ──
+function renderClientHistory(){
+  initOpts('ch-client',[...new Set(CLIENT_HISTORY.map(h=>h.client).filter(Boolean))]);
+  initOpts('ch-status',[...new Set(CLIENT_HISTORY.map(h=>h.status).filter(Boolean))]);
+  const q=(document.getElementById('ch-search').value||'').toLowerCase();
+  const cf=document.getElementById('ch-client').value;
+  const sf=document.getElementById('ch-status').value;
+  const f=CLIENT_HISTORY.filter(h=>{
+    if(q&&!h.client.toLowerCase().includes(q)&&!h.notes.toLowerCase().includes(q)&&!h.clientId.toLowerCase().includes(q))return false;
+    if(cf&&h.client!==cf)return false;
+    if(sf&&h.status!==sf)return false;
+    return true;
+  });
+  document.getElementById('ch-count').textContent=`${f.length} entries`;
+  document.getElementById('ch-tbody').innerHTML=f.length?f.map(h=>`<tr>
+    <td class="td-mono" style="white-space:nowrap">${h.clientId}</td>
+    <td class="td-bold" style="min-width:160px" title="${h.client}">${h.client}</td>
+    <td class="td-mono" style="white-space:nowrap;font-size:11px">${h.timestamp?new Date(h.timestamp).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}</td>
+    <td style="min-width:130px" title="${h.contact}">${h.contact||'—'}</td>
+    <td>${stBadge(h.status)}</td>
+    <td style="white-space:nowrap">${h.contactType?`<span class="badge badge-gray">${h.contactType}</span>`:'—'}</td>
+    <td style="white-space:nowrap">${fmt(h.lastContact)}</td>
+    <td style="white-space:nowrap" class="${h.nextFollowUp&&new Date(h.nextFollowUp)<TODAY?'overdue':''}">${fmt(h.nextFollowUp)}</td>
+    <td style="white-space:nowrap">${h.assigned||'<span class="unassigned">—</span>'}</td>
+    <td style="white-space:nowrap">${h.provider||'—'}</td>
+    <td style="min-width:220px;white-space:normal;font-size:12px;color:var(--text2)">${h.notes||'—'}</td>
+  </tr>`).join(''):
+  `<tr><td colspan="11"><div class="empty">No history found. Sync from Google Sheets to load ClientSummary data.</div></td></tr>`;
+}
+
+// ── COA HISTORY ──
+function renderCOAHistory(){
+  initOpts('coah-client',[...new Set(COA_HISTORY.map(h=>h.client).filter(Boolean))]);
+  initOpts('coah-assigned',[...new Set(COA_HISTORY.flatMap(h=>h.assigned.split(',').map(a=>a.trim())).filter(Boolean))]);
+  const q=(document.getElementById('coah-search').value||'').toLowerCase();
+  const cf=document.getElementById('coah-client').value;
+  const af=document.getElementById('coah-assigned').value;
+  const f=COA_HISTORY.filter(h=>{
+    if(q&&!h.client.toLowerCase().includes(q)&&!h.task.toLowerCase().includes(q)&&!h.clientId.toLowerCase().includes(q))return false;
+    if(cf&&h.client!==cf)return false;
+    if(af&&!h.assigned.includes(af))return false;
+    return true;
+  });
+  document.getElementById('coah-count').textContent=`${f.length} entries`;
+  document.getElementById('coah-tbody').innerHTML=f.length?f.map(h=>`<tr>
+    <td class="td-mono" style="white-space:nowrap;font-size:11px">${h.timestamp?new Date(h.timestamp).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}</td>
+    <td style="white-space:nowrap">${fmt(h.activityDate)}</td>
+    <td class="td-mono" style="white-space:nowrap">${h.clientId||'—'}</td>
+    <td class="td-bold" style="min-width:150px" title="${h.client}">${h.client||'<span class="unassigned">non-client</span>'}</td>
+    <td>${h.contactType?`<span class="badge badge-gray">${h.contactType}</span>`:'—'}</td>
+    <td style="min-width:220px;white-space:normal;font-size:12px">${h.task||'—'}</td>
+    <td style="white-space:nowrap">${h.assigned||'—'}</td>
+    <td class="td-mono" style="white-space:nowrap">${h.sequence||'—'}</td>
+  </tr>`).join(''):
+  `<tr><td colspan="8"><div class="empty">No COA history found. Sync from Google Sheets to load COAHistory data.</div></td></tr>`;
+}
+
+function showPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(btn)btn.classList.add('active');
+  const t={dashboard:['Dashboard','Overview'],clients:['Clients','All client records'],quotations:['Quotations','Pending & released'],coa:['COA Tasks','Pending & completed tasks'],renewals:['Renewals','Renewal alert tracker'],providers:['Providers','Email contacts'],settings:['Settings','Google Sheets & OAuth']};
+  const [title,sub]=t[id]||[id,''];
+  document.getElementById('page-title').textContent=title;
+  document.getElementById('page-sub').textContent=sub;
+  if(id==='clients')renderClients();
+  if(id==='quotations')renderQuotations();
+  if(id==='coa')renderCOA();
+  if(id==='renewals')renderRenewals();
+  if(id==='released')renderReleased();
+  if(id==='client-history')renderClientHistory();
+  if(id==='coa-history')renderCOAHistory();
+  if(id==='providers')renderProviders();
+}
+
+// ── RENDER ALL ──
+function renderAll(){ renderDashboard(); }
+
+// ── DASHBOARD ──
+let _pipelineChart=null, _quoteChart=null;
+
+function dashToggle(id){
+  const coll=document.getElementById(id);
+  const body=coll.querySelector('.dash-coll-body');
+  const chev=coll.querySelector('.dash-coll-chevron');
+  body.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+
+function renderDashboard(){
+  const active=CLIENTS.filter(c=>!['Closed Won','Closed Lost'].includes(c.status));
+  const overdue=CLIENTS.filter(c=>c.nextFollowUp&&new Date(c.nextFollowUp)<TODAY&&!['Closed Won','Closed Lost'].includes(c.status));
+  const openCOA=COA_DATA.filter(c=>!c.completed);
+  const critRen=CLIENTS.filter(c=>{const days=dd(pd(c.renewal));return days!==null&&days<=14;});
+  const unassigned=CLIENTS.filter(c=>!c.assigned&&!['Closed Won','Closed Lost'].includes(c.status));
+
+  document.getElementById('nb-clients').textContent=CLIENTS.length;
+  document.getElementById('nb-coa').textContent=openCOA.length;
+  document.getElementById('nb-renewals').textContent=critRen.length;
+
+  // ── TOP METRICS ──
+  document.getElementById('dash-metrics').innerHTML=`
+    <div class="metric-card accent"><div class="metric-label">Total clients</div><div class="metric-value">${CLIENTS.length}</div><div class="metric-delta" style="color:rgba(255,255,255,0.4)">${active.length} active</div></div>
+    <div class="metric-card" style="border-left:3px solid var(--red)"><div class="metric-label">Overdue follow-ups</div><div class="metric-value danger">${overdue.length}</div><div class="metric-delta">Need immediate action</div></div>
+    <div class="metric-card" style="border-left:3px solid var(--amber)"><div class="metric-label">Critical renewals</div><div class="metric-value warn">${critRen.length}</div><div class="metric-delta">Within 14 days</div></div>
+    <div class="metric-card" style="border-left:3px solid var(--blue)"><div class="metric-label">Open COA tasks</div><div class="metric-value info">${openCOA.length}</div><div class="metric-delta">Pending completion</div></div>
+  `;
+
+  // ── PIPELINE BAR CHART ──
+  const plLabels=['New','Negotiation','Quotation','Presentation','Closing','Won','Lost'];
+  const plData=STATUSES.map(s=>CLIENTS.filter(c=>c.status===s).length);
+  const plColors=['#B4B2A9','#85B7EB','#FAC775','#AFA9EC','#5DCAA5','#97C459','#F09595'];
+  if(_pipelineChart){ _pipelineChart.destroy(); _pipelineChart=null; }
+  const pCtx=document.getElementById('dash-pipeline-chart');
+  if(pCtx && window.Chart){
+    _pipelineChart=new Chart(pCtx,{
+      type:'bar',
+      data:{labels:plLabels,datasets:[{data:plData,backgroundColor:plColors,borderRadius:4,borderWidth:0}]},
+      options:{
+        responsive:true,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y} clients`}}},
+        scales:{
+          x:{grid:{display:false},border:{display:false},ticks:{font:{size:10},color:'#a8a89e'}},
+          y:{grid:{color:'rgba(0,0,0,0.05)'},border:{display:false},ticks:{stepSize:1,font:{size:10},color:'#a8a89e'}}
+        }
+      }
+    });
+  }
+
+  // ── QUOTATION DONUT CHART ──
+  const qNoEmailAll=QUOTATIONS.filter(q=>q.status&&q.status.includes('No Email Sent'));
+  const qWithinTATAll=QUOTATIONS.filter(q=>q.status&&q.status.includes('Within TAT'));
+  const qFollowUpAll=QUOTATIONS.filter(q=>q.status&&q.status.includes('For Follow-Up'));
+  const qOverdueAll=QUOTATIONS.filter(q=>q.status&&q.status.includes('Overdue')&&!q.status.includes('Follow'));
+  const qFranchiseRenewal=QUOTATIONS.filter(q=>q.status==='For Franchise Renewal');
+  const qReleased=QUOTATIONS.filter(q=>q.status==='Released');
+  const qLabels=['No email sent','Within TAT','For follow-up','Overdue','For franchise renewal','Released'];
+  const qData=[qNoEmailAll.length,qWithinTATAll.length,qFollowUpAll.length,qOverdueAll.length,qFranchiseRenewal.length,qReleased.length];
+  const qColors=['#B4B2A9','#5DCAA5','#FAC775','#F09595','#85B7EB','#97C459'];
+  if(_quoteChart){ _quoteChart.destroy(); _quoteChart=null; }
+  const qCtx=document.getElementById('dash-quote-chart');
+  if(qCtx && window.Chart){
+    _quoteChart=new Chart(qCtx,{
+      type:'doughnut',
+      data:{labels:qLabels,datasets:[{data:qData,backgroundColor:qColors,borderWidth:2,borderColor:'#ffffff',hoverOffset:4}]},
+      options:{responsive:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed}`}}}}
+    });
+  }
+  const leg=document.getElementById('dash-quote-legend');
+  if(leg) leg.innerHTML=qLabels.map((l,i)=>`
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="width:8px;height:8px;border-radius:50%;background:${qColors[i]};flex-shrink:0;display:inline-block"></span>
+      <span style="color:var(--text2);flex:1;font-size:11px">${l}</span>
+      <span style="font-weight:500;font-size:11px">${qData[i]}</span>
+    </div>`).join('');
+
+  // ── OVERDUE FOLLOW-UPS (scrollable list) ──
+  const overdSorted=[...overdue].sort((a,b)=>new Date(a.nextFollowUp)-new Date(b.nextFollowUp));
+  const overdEl=document.getElementById('dash-overdue');
+  const overdHint=document.getElementById('dash-overdue-hint');
+  const overdCountEl=document.getElementById('dash-overdue-count');
+  if(overdCountEl) overdCountEl.textContent=overdSorted.length;
+  overdEl.innerHTML=overdSorted.length?overdSorted.map(c=>{
+    const clientIdx=CLIENTS.indexOf(c);
+    const daysAgo=Math.abs(dd(new Date(c.nextFollowUp)));
+    return`<div class="dash-list-row">
+      <div>
+        <div class="dash-list-name"><span class="dash-clickable" onclick="openClientDrawer(${clientIdx})" title="Quick peek">${c.name}</span></div>
+        <div class="dash-list-sub">${stBadge(c.status)} · ${c.assigned||'<span class="unassigned">unassigned</span>'}</div>
+      </div>
+      <div class="dash-list-meta">
+        <div style="font-size:11px;font-weight:500;color:var(--red)">${fmt(c.nextFollowUp)}</div>
+        <div style="font-size:10px;color:var(--text3)">${daysAgo}d overdue</div>
+      </div>
+    </div>`;
+  }).join(''):`<div class="empty" style="padding:24px">No overdue follow-ups ✓</div>`;
+  if(overdHint){ if(overdSorted.length>3){overdHint.textContent=`Scroll to see all ${overdSorted.length} items`;overdHint.classList.add('visible');}else{overdHint.classList.remove('visible');} }
+
+  // ── OPEN COA TASKS (scrollable list) ──
+  const coaSorted=[...openCOA].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const coaEl=document.getElementById('dash-coa');
+  const coaHint=document.getElementById('dash-coa-hint');
+  const coaCountEl=document.getElementById('dash-coa-count');
+  if(coaCountEl) coaCountEl.textContent=coaSorted.length;
+  const ctBadge=t=>{ const m={'Call/Text':'badge-teal','Email':'badge-gray','Visit/Meeting':'badge-amber','Presentation':'badge-purple'}; return`<span class="badge ${m[t]||'badge-gray'}">${t||'—'}</span>`; };
+  coaEl.innerHTML=coaSorted.length?coaSorted.map((c,i)=>{
+    const coaIdx=COA_DATA.indexOf(c);
+    return`<div class="dash-list-row">
+      <div>
+        <div class="dash-list-name"><span class="dash-clickable" onclick="openCOADrawer(${coaIdx})" title="Quick peek">${c.task}</span></div>
+        <div class="dash-list-sub">${c.client||'Non-client'} · ${c.assigned||'unassigned'}</div>
+      </div>
+      <div class="dash-list-meta">${ctBadge(c.contactType)}</div>
+    </div>`;
+  }).join(''):`<div class="empty" style="padding:24px">No open COA tasks ✓</div>`;
+  if(coaHint){ if(coaSorted.length>3){coaHint.textContent=`Scroll to see all ${coaSorted.length} items`;coaHint.classList.add('visible');}else{coaHint.classList.remove('visible');} }
+
+  // ── COLLAPSIBLE: PIPELINE ──
+  document.getElementById('dash-pipeline').innerHTML=STATUSES.map(s=>{
+    const items=CLIENTS.filter(c=>c.status===s);
+    return`<div class="pl-col"><div class="pl-col-name">${s}</div><div class="pl-count">${items.length}</div>${items.map(c=>`<div class="pl-item"><div class="pl-item-name" title="${c.name}">${c.name}</div><div class="pl-item-sub">${c.assigned||'unassigned'}</div></div>`).join('')}</div>`;
+  }).join('');
+
+  // ── COLLAPSIBLE: RENEWALS ──
+  const up45=CLIENTS.map(c=>{const d=pd(c.renewal);const days=dd(d);return{...c,days,dateObj:d,u:urg(days)};}).filter(c=>c.days!==null&&c.days<=45).sort((a,b)=>a.days-b.days);
+  const renBadgeEl=document.getElementById('dash-coll-ren-badge');
+  if(renBadgeEl){ renBadgeEl.textContent=`${up45.length} upcoming`; if(critRen.length>0){renBadgeEl.style.background='var(--red-bg)';renBadgeEl.style.color='var(--red)';}else{renBadgeEl.style.background='';renBadgeEl.style.color='';} }
+  document.getElementById('dash-renewals').innerHTML=up45.length?up45.map(c=>`<tr>
+    <td class="td-bold">${c.name}</td>
+    <td>${c.currentProvider||'<span class="unassigned">—</span>'}</td>
+    <td>${fmt(c.dateObj)}</td>
+    <td>${daysCell(c.days)}</td>
+    <td><span class="badge ${c.u.cls}">${c.u.label}</span></td>
+    <td>${stBadge(c.status)}</td>
+  </tr>`).join(''):noData(6);
+
+  // ── COLLAPSIBLE: QUOTATIONS NEEDING ATTENTION ──
+  const qAttn=QUOTATIONS.filter(q=>q.status&&['No Email Sent','For Follow-Up','Overdue','Franchise Expired','For Franchise Renewal'].some(s=>q.status.includes(s)));
+  const qBadgeEl=document.getElementById('dash-coll-q-badge');
+  if(qBadgeEl){ qBadgeEl.textContent=`${qAttn.length} need attention`; if(qAttn.length>0){qBadgeEl.style.background='var(--amber-bg)';qBadgeEl.style.color='var(--amber)';}else{qBadgeEl.style.background='';qBadgeEl.style.color='';} }
+  document.getElementById('dash-quotes-attn').innerHTML=qAttn.length?qAttn.map(q=>`<tr>
+    <td class="td-mono">${q.id}</td>
+    <td title="${q.client}">${q.client}</td>
+    <td>${q.provider||'—'}</td>
+    <td>${qBadge(q.status)}</td>
+    <td class="${q.followUp&&new Date(q.followUp)<TODAY?'overdue':''}">${fmt(q.followUp)}</td>
+  </tr>`).join(''):`<tr><td colspan="5"><div class="empty" style="padding:16px">All quotations are on track ✓</div></td></tr>`;
+
+  // ── COLLAPSIBLE: UNASSIGNED CLIENTS ──
+  const uaBadgeEl=document.getElementById('dash-coll-ua-badge');
+  if(uaBadgeEl){ uaBadgeEl.textContent=`${unassigned.length} unassigned`; if(unassigned.length>0){uaBadgeEl.style.background='var(--blue-bg)';uaBadgeEl.style.color='var(--blue)';}else{uaBadgeEl.style.background='';uaBadgeEl.style.color='';} }
+  document.getElementById('dash-unassigned').innerHTML=unassigned.length?unassigned.map(c=>{
+    const d=pd(c.renewal);const days=dd(d);const u=urg(days);
+    return`<tr>
+      <td class="td-bold" title="${c.name}">${c.name}</td>
+      <td>${stBadge(c.status)}</td>
+      <td>${c.renewal?`<span style="color:${u.color};font-weight:500">${fmt(d)}</span>`:'—'}</td>
+      <td>${c.insType||'—'}</td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="4"><div class="empty" style="padding:16px">All active clients are assigned ✓</div></td></tr>`;
+
+  // ── PRINT FALLBACKS ──
+  const printPipeline = document.getElementById('dash-print-pipeline');
+  if (printPipeline) {
+    printPipeline.innerHTML = STATUSES.map((s, i) =>
+      `<span style="display:inline-block;min-width:180px"><b>${plLabels[i]}:</b> ${plData[i]} client${plData[i]===1?'':'s'}</span>`
+    ).join('<br>');
+  }
+  const printQuotes = document.getElementById('dash-print-quotes');
+  if (printQuotes) {
+    printQuotes.innerHTML = qLabels.map((l, i) =>
+      `<span style="display:inline-block;min-width:200px"><b>${l}:</b> ${qData[i]}</span>`
+    ).join('<br>');
+  }
+}
+
+// ── CLIENTS ──
+function renderClients(){
+  initOpts('c-status',[...new Set(CLIENTS.map(c=>c.status).filter(Boolean))]);
+  initOpts('c-assigned',[...new Set(CLIENTS.flatMap(c=>c.assigned.split(',').map(a=>a.trim())).filter(Boolean))]);
+  initOpts('c-instype',[...new Set(CLIENTS.map(c=>c.insType).filter(Boolean))]);
+  const q=(document.getElementById('c-search').value||'').toLowerCase();
+  const sf=document.getElementById('c-status').value;
+  const af=document.getElementById('c-assigned').value;
+  const itf=document.getElementById('c-instype').value;
+  const closedStatuses=['Closed Won','Closed Lost'];
+  const f=CLIENTS.filter(c=>{
+    const isClosed=closedStatuses.includes(c.status);
+    if(clientTab==='active'&&isClosed)return false;
+    if(clientTab==='closed'&&!isClosed)return false;
+    if(q&&!c.name.toLowerCase().includes(q)&&!c.contact.toLowerCase().includes(q)&&!c.id.toLowerCase().includes(q))return false;
+    if(sf&&c.status!==sf)return false;
+    if(af&&!c.assigned.split(',').map(a=>a.trim()).includes(af))return false;
+    if(itf&&c.insType!==itf)return false;
+    return true;
+  });
+  _exportData.clients = f;
+  document.getElementById('c-count').textContent=`${f.length} of ${CLIENTS.length}`;
+  document.getElementById('c-tbody').innerHTML=f.length?f.map(c=>{
+    const idx=CLIENTS.indexOf(c);
+    const d=pd(c.renewal);const days=dd(d);const u=urg(days);
+    const ren=c.renewal?`<span style="color:${u.color};font-weight:500">${fmt(d)}</span>`:'<span class="unassigned">—</span>';
+    const docs=(c.docs&&c.docs.startsWith('http'))?`<a href="${c.docs}" target="_blank" style="color:var(--accent2)">View ↗</a>`:'—';
+    const notesTrunc=c.notes&&c.notes.length>60?c.notes.substring(0,60)+'…':c.notes||'—';
+    return`<tr>
+      <td class="td-mono">${c.id}</td>
+      <td class="td-bold" title="${c.name}">${c.name}</td>
+      <td title="${c.contact}">${c.contact||'—'}</td>
+      <td>${c.mobile||'—'}</td>
+      <td title="${c.email}" style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${c.email||'—'}</td>
+      <td title="${c.bizType}" style="max-width:140px;overflow:hidden;text-overflow:ellipsis">${c.bizType||'—'}</td>
+      <td>${c.insType||'—'}</td>
+      <td>${c.currentProvider||'<span class="unassigned">—</span>'}</td>
+      <td>${ren}</td>
+      <td>${c.provider||'<span class="unassigned">—</span>'}</td>
+      <td>${stBadge(c.status)}</td>
+      <td>${c.contactType||'—'}</td>
+      <td class="${fcClass(c.lastContact)}">${fmt(c.lastContact)}</td>
+      <td class="${fcClass(c.nextFollowUp)}">${fmt(c.nextFollowUp)}</td>
+      <td>${c.assigned||'<span class="unassigned">unassigned</span>'}</td>
+      <td title="${c.notes}" style="max-width:240px;white-space:normal;word-break:break-word;color:var(--text2);font-size:12px;line-height:1.4">${notesTrunc}</td>
+      <td>${docs}</td>
+      <td><button class="btn" style="font-size:11px;height:26px;padding:0 8px" onclick="openClientModal(${idx})">Edit</button></td>
+    </tr>`;
+  }).join(''):noData(18);
+}
+
+// ── QUOTATIONS ──
+function setClientSubTab(t,btn){
+  document.querySelectorAll('#client-subtab-row .stab').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.getElementById('client-records-view').style.display=t==='records'?'block':'none';
+  document.getElementById('client-history-view').style.display=t==='history'?'block':'none';
+  if(t==='history') renderClientHistory();
+}
+
+function renderClientHistory(){
+  initOpts('ch-client-filter',[...new Set(CLIENT_HISTORY.map(h=>h.client).filter(Boolean))]);
+  initOpts('ch-status-filter',[...new Set(CLIENT_HISTORY.map(h=>h.status).filter(Boolean))]);
+  const q=(document.getElementById('ch-search')?.value||'').toLowerCase();
+  const cf=document.getElementById('ch-client-filter')?.value||'';
+  const sf=document.getElementById('ch-status-filter')?.value||'';
+  const f=CLIENT_HISTORY.filter(h=>{
+    if(q&&!h.client?.toLowerCase().includes(q)&&!h.clientId?.toLowerCase().includes(q)&&!h.notes?.toLowerCase().includes(q))return false;
+    if(cf&&h.client!==cf)return false;
+    if(sf&&h.status!==sf)return false;
+    return true;
+  });
+  const el=document.getElementById('ch-count');
+  if(el)el.textContent=`${f.length} entries`;
+  const tbody=document.getElementById('ch-tbody');
+  if(!tbody)return;
+  tbody.innerHTML=f.length?f.map(h=>`<tr>
+    <td class="td-mono">${h.clientId||'—'}</td>
+    <td class="td-bold" title="${h.client||''}">${h.client||'—'}</td>
+    <td class="td-mono" style="font-size:11px">${h.timestamp?new Date(h.timestamp).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}</td>
+    <td>${stBadge(h.status)}</td>
+    <td>${h.contactType?`<span class="badge badge-gray">${h.contactType}</span>`:'—'}</td>
+    <td class="${h.lastContact&&new Date(h.lastContact)<TODAY?'overdue':''}">${fmt(h.lastContact)}</td>
+    <td>${fmt(h.nextFollowUp)}</td>
+    <td>${h.assigned||'—'}</td>
+    <td style="white-space:normal;min-width:220px;font-size:12px;color:var(--text2)">${h.notes||'—'}</td>
+  </tr>`).join(''):`<tr><td colspan="9"><div class="empty">No history found. Sync from Google Sheets to load ClientSummary data.</div></td></tr>`;
+}
+
+function setClientTab(t,btn){
+  clientTab=t;
+  document.querySelectorAll('#page-clients .stab').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  // Reset status filter when switching tabs
+  const sf=document.getElementById('c-status');
+  if(sf)sf.value='';
+  renderClients();
+}
+function setQuoteTab(t,btn){
+  quoteTab=t;
+  document.querySelectorAll('#page-quotations .stab').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.getElementById('q-tab-title').textContent=t==='pending'?'Pending quotations':'Released quotations';
+  renderQuotations();
+}
+function renderQuotations(){
+  initOpts('q-provider',[...new Set(QUOTATIONS.map(q=>q.provider).filter(Boolean))]);
+  const q=(document.getElementById('q-search').value||'').toLowerCase();
+  const pf=document.getElementById('q-provider').value;
+  const isReleased=quoteTab==='released';
+  const f=QUOTATIONS.filter(qt=>{
+    const rel=qt.status==='Released';
+    if(isReleased&&!rel)return false;
+    if(!isReleased&&rel)return false;
+    if(q&&!qt.client.toLowerCase().includes(q)&&!qt.provider.toLowerCase().includes(q)&&!qt.id.toLowerCase().includes(q))return false;
+    if(pf&&qt.provider!==pf)return false;
+    return true;
+  });
+  _exportData.quotations = f;
+  document.getElementById('q-count').textContent=`${f.length} quotations`;
+  document.getElementById('q-tbody').innerHTML=f.length?f.map(qt=>{
+    const idx=QUOTATIONS.indexOf(qt);
+    const fuClass=qt.followUp&&new Date(qt.followUp)<TODAY?'overdue':'';
+    return`<tr><td class="td-mono">${qt.id}</td><td class="td-bold" title="${qt.client}">${qt.client}</td><td>${qt.provider}</td><td>${fmt(qt.franchiseDate)}</td><td>${fmt(qt.franchiseEnd)}</td><td>${fmt(qt.initialEmail)}</td><td>${fmt(qt.tat)}</td><td>${qBadge(qt.status)}</td><td>${qt.rates||'—'}</td><td>${qt.torSob||'—'}</td><td class="${fuClass}">${fmt(qt.followUp)}</td><td><button class="btn" style="font-size:11px;height:26px;padding:0 8px" onclick="openQuoteModal(${idx})">Edit</button></td></tr>`;
+  }).join(''):noData(12);
+}
+
+// ── COA ──
+function setCOATab(t,btn){
+  coaTab=t;
+  document.querySelectorAll('#page-coa .stab').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.getElementById('coa-tab-title').textContent=t==='open'?'Pending tasks':'Completed tasks';
+  renderCOA();
+}
+function renderCOA(){
+  initOpts('coa-assigned',[...new Set(COA_DATA.flatMap(c=>c.assigned.split(',').map(a=>a.trim())).filter(Boolean))]);
+  initOpts('coa-type',[...new Set(COA_DATA.map(c=>c.contactType).filter(Boolean))]);
+  const q=(document.getElementById('coa-search').value||'').toLowerCase();
+  const af=document.getElementById('coa-assigned').value;
+  const tf=document.getElementById('coa-type').value;
+  const f=COA_DATA.filter(c=>{
+    if(coaTab==='open'&&c.completed)return false;
+    if(coaTab==='done'&&!c.completed)return false;
+    if(q&&!c.task.toLowerCase().includes(q)&&!(c.client||'').toLowerCase().includes(q))return false;
+    if(af&&!c.assigned.split(',').map(a=>a.trim()).includes(af))return false;
+    if(tf&&c.contactType!==tf)return false;
+    return true;
+  }).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  _exportData.coa = f;
+  document.getElementById('coa-count').textContent=`${f.length} tasks`;
+  document.getElementById('coa-tbody').innerHTML=f.length?f.map(c=>{
+    const idx=COA_DATA.indexOf(c);
+    const isPending=!c.completed;
+    const completeBtn=isPending
+      ?`<button class="btn btn-complete" title="Mark complete" onclick="completeCOATask(${idx})" style="font-size:13px;height:28px;width:28px;padding:0;background:var(--green-bg);color:var(--green);border-color:transparent;border-radius:50%;font-weight:700">✓</button>`
+      :`<span style="color:var(--green);font-weight:500;font-size:12px">${fmt(c.completed)}</span>`;
+    return`<tr>
+      <td style="white-space:nowrap">${fmt(c.date)}</td>
+      <td class="td-mono" style="white-space:nowrap">${c.clientId||'—'}</td>
+      <td title="${c.client||''}">${c.client||'<span class="unassigned">non-client</span>'}</td>
+      <td>${c.contactType?`<span class="badge badge-gray">${c.contactType}</span>`:'—'}</td>
+      <td style="white-space:normal;font-size:13px;min-width:200px">${c.task}</td>
+      <td style="white-space:nowrap">${c.assigned||'—'}</td>
+      <td style="white-space:nowrap">${completeBtn}</td>
+      <td style="white-space:nowrap"><button class="btn" style="font-size:11px;height:26px;padding:0 8px" onclick="openCOAModal(${idx})">Edit</button></td>
+    </tr>`;
+  }).join(''):noData(8);
+}
+
+// ── COMPLETION DATE PROMPT ──
+function promptCompletionDate(){
+  return new Promise((resolve)=>{
+    // Remove any existing prompt
+    const existing=document.getElementById('completion-date-modal');
+    if(existing) existing.remove();
+
+    const today=new Date().toISOString().split('T')[0];
+    const overlay=document.createElement('div');
+    overlay.id='completion-date-modal';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:999;display:flex;align-items:center;justify-content:center';
+
+    overlay.innerHTML=`
+      <div style="background:var(--surface);border-radius:var(--radius);padding:28px 28px 20px;width:340px;box-shadow:0 16px 48px rgba(0,0,0,0.2)">
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px">Date completed</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px">When was this task completed?</div>
+        <input type="date" id="completion-date-input" value="${today}"
+          style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;color:var(--text);background:var(--surface);outline:none;margin-bottom:16px">
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button id="completion-cancel" style="height:34px;padding:0 16px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:transparent;font-family:inherit;font-size:13px;cursor:pointer">Cancel</button>
+          <button id="completion-confirm" style="height:34px;padding:0 16px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:#fff;font-family:inherit;font-size:13px;cursor:pointer;font-weight:500">Confirm</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    document.getElementById('completion-confirm').onclick=()=>{
+      const val=document.getElementById('completion-date-input').value;
+      overlay.remove();
+      resolve(val||today);
+    };
+    document.getElementById('completion-cancel').onclick=()=>{
+      overlay.remove();
+      resolve(null);
+    };
+    overlay.onclick=(e)=>{ if(e.target===overlay){ overlay.remove(); resolve(null); } };
+
+    // Focus and allow Enter key
+    const input=document.getElementById('completion-date-input');
+    input.focus();
+    input.onkeydown=(e)=>{
+      if(e.key==='Enter'){ document.getElementById('completion-confirm').click(); }
+      if(e.key==='Escape'){ document.getElementById('completion-cancel').click(); }
+    };
+  });
+}
+
+// ── COMPLETE COA TASK ── (mirrors Code.gs handleCOASheetEdit_ logic)
+async function completeCOATask(idx){
+  const task = COA_DATA[idx];
+  if(!task || task.completed) return;
+
+  // Ask for completion date first
+  const dateInput = await promptCompletionDate();
+  if(!dateInput) return; // cancelled
+
+  const today = dateInput;
+  const todayDate = new Date(dateInput); todayDate.setHours(0,0,0,0);
+
+  toast('Completing task...','saving');
+
+  // 1. Mark task complete with today's date
+  task.completed = today;
+
+  // 2. If linked to a client — update client sheet (mirrors Code.gs handleCOASheetEdit_)
+  if(task.clientId){
+    const ci = CLIENTS.findIndex(c=>c.id===task.clientId);
+    if(ci>-1){
+      const client = CLIENTS[ci];
+
+      // Update Notes, Contact Type, Assigned, Last Contact Date on client
+      if(task.task) client.notes = task.task;
+      if(task.contactType) client.contactType = task.contactType;
+      if(task.assigned) client.assigned = task.assigned;
+      client.lastContact = today;
+
+      // Compute Next Follow-up Date by status (mirrors computeNextFollowUpDateByStatus_)
+      client.nextFollowUp = computeNextFollowUp(todayDate, client.status);
+
+      // Save client row to Google Sheets
+      await writeBack(CFG.clientsSheet, client, clientToRow, ci, CLIENTS, false);
+
+      // Append to ClientSummary (mirrors appendClientSummaryHistoryFromClientRow_)
+      const csTs = new Date().toLocaleString('en-PH');
+      await appendHistoryWithRetry(
+        CFG.clientSummarySheet||'ClientSummary',
+        [csTs, client.id, client.name, client.contact, client.mobile,
+         client.email, client.bizType, client.insType, client.currentProvider,
+         client.renewal, client.provider, client.status, client.contactType,
+         client.lastContact, client.nextFollowUp, client.assigned, client.notes, client.docs||''],
+        'ClientSummary'
+      );
+      CLIENT_HISTORY.unshift({
+        timestamp:csTs, clientId:client.id, client:client.name, contact:client.contact,
+        status:client.status, contactType:client.contactType, lastContact:client.lastContact,
+        nextFollowUp:client.nextFollowUp, assigned:client.assigned, notes:client.notes
+      });
+    }
+  }
+
+  // 3. Save completed COA task to COA sheet (mirrors handleCOASheetEdit_ - row stays, Date Completed fills)
+  await writeBack(CFG.coaSheet, task, coaToRow, idx, COA_DATA, false);
+
+  // 4. Append to MTaskHistory (mirrors moveCOARowToMTaskHistory_)
+  const coaTs = new Date().toLocaleString('en-PH');
+  const coaSeq = (COA_HISTORY.length||0) + 1;
+  await appendHistoryWithRetry(
+    CFG.coaHistorySheet||'MTaskHistory',
+    [coaTs, task.date, task.clientId||'', task.client||'',
+     task.contactType||'', task.task||'', task.assigned||'', 'YES', coaSeq],
+    'MTaskHistory'
+  );
+  COA_HISTORY.unshift({
+    timestamp:coaTs, activityDate:task.date, clientId:task.clientId,
+    client:task.client, contactType:task.contactType, task:task.task,
+    assigned:task.assigned, processed:'YES', sequence:coaSeq
+  });
+
+  saveLocalData();
+  toast(`Task completed ✓${task.clientId?' — Client updated':''}`, 'success');
+  renderCOA();
+  renderDashboard();
+}
+
+// Mirrors computeNextFollowUpDateByStatus_ from Code.gs
+function computeNextFollowUp(baseDate, status){
+  if(!baseDate) return '';
+  const s=(status||'').trim().toLowerCase();
+  let d = new Date(baseDate);
+  if(s==='newly contacted') return addWorkingDays(d,5);
+  if(s==='negotiation') return addCalendarDays(d,7);
+  if(s==='for quotation') return addWorkingDays(d,7);
+  if(s==='for presentation'||s==='closing') return ''; // requires manual date input
+  if(s==='closed won'||s==='closed lost') return '';
+  return addWorkingDays(d,5);
+}
+
+function addWorkingDays(date, days){
+  let d=new Date(date); let count=0;
+  while(count<days){ d.setDate(d.getDate()+1); if(d.getDay()!==0&&d.getDay()!==6) count++; }
+  return d.toISOString().split('T')[0];
+}
+
+function addCalendarDays(date, days){
+  let d=new Date(date); d.setDate(d.getDate()+days);
+  // adjust to next weekday if on weekend
+  if(d.getDay()===0) d.setDate(d.getDate()+1);
+  if(d.getDay()===6) d.setDate(d.getDate()+2);
+  return d.toISOString().split('T')[0];
+}
+
+// ── RENEWALS ──
+function renderRenewals(){
+  initOpts('r-assigned',[...new Set(CLIENTS.flatMap(c=>c.assigned.split(',').map(a=>a.trim())).filter(Boolean))]);
+  const q=(document.getElementById('r-search').value||'').toLowerCase();
+  const uf=document.getElementById('r-urgency').value;
+  const af=document.getElementById('r-assigned').value;
+  const rows=CLIENTS.map(c=>{const d=pd(c.renewal);const days=dd(d);const u=urg(days);return{...c,dateObj:d,days,u};}).sort((a,b)=>{if(a.days===null&&b.days===null)return 0;if(a.days===null)return 1;if(b.days===null)return -1;return a.days-b.days;});
+  const expired=rows.filter(r=>r.u.cat==='expired').length;
+  const critical=rows.filter(r=>r.u.cat==='critical').length;
+  const soon=rows.filter(r=>r.u.cat==='soon').length;
+  const upcoming=rows.filter(r=>r.u.cat==='upcoming').length;
+  document.getElementById('ren-metrics').innerHTML=`
+    <div class="metric-card"><div class="metric-label">Expired</div><div class="metric-value danger">${expired}</div><div class="metric-delta">Past renewal date</div></div>
+    <div class="metric-card"><div class="metric-label">Critical (≤14 days)</div><div class="metric-value danger">${critical}</div><div class="metric-delta">Act immediately</div></div>
+    <div class="metric-card"><div class="metric-label">Soon (15–30 days)</div><div class="metric-value warn">${soon}</div><div class="metric-delta">Prepare proposals</div></div>
+    <div class="metric-card"><div class="metric-label">Upcoming (31–90 days)</div><div class="metric-value info">${upcoming}</div><div class="metric-delta">Monitor & plan</div></div>
+  `;
+  const f=rows.filter(r=>{if(uf&&r.u.cat!==uf)return false;if(af&&!r.assigned.includes(af))return false;if(q&&!r.name.toLowerCase().includes(q)&&!r.id.toLowerCase().includes(q))return false;return true;});
+  _exportData.renewals = f;
+  document.getElementById('r-count').textContent=`${f.length} clients`;
+  document.getElementById('r-tbody').innerHTML=f.length?f.map(r=>`<tr><td class="td-mono">${r.id}</td><td class="td-bold">${r.name}</td><td>${r.currentProvider||'<span class="unassigned">—</span>'}</td><td>${fmt(r.dateObj)}</td><td>${daysCell(r.days)}</td><td><span class="badge ${r.u.cls}">${r.u.label}</span></td><td>${stBadge(r.status)}</td><td>${r.assigned||'<span class="unassigned">unassigned</span>'}</td><td>${r.insType}</td></tr>`).join(''):noData(9);
+  renderRenewalSummary();
+}
+
+// ── CSV EXPORT ──
+function exportToCSV(headers, rows, filename) {
+  const escape = val => {
+    if (val === null || val === undefined) return '';
+    const s = String(val);
+    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+      ? '"' + s.replace(/"/g, '""') + '"'
+      : s;
+  };
+  const lines = [
+    headers.map(escape).join(','),
+    ...rows.map(r => r.map(escape).join(','))
+  ];
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+
+function exportClients() {
+  const headers = ['ID','Name','Contact Person','Mobile','Email','Business Type',
+    'Insurance Type','Current Provider','Renewal Date','Pipeline Status',
+    'Last Contact','Next Follow-Up','Assigned','Notes'];
+  const rows = _exportData.clients.map(c => [
+    c.id, c.name, c.contact, c.mobile, c.email, c.bizType,
+    c.insType, c.currentProvider, c.renewal, c.status,
+    c.lastContact, c.nextFollowUp, c.assigned, c.notes
+  ]);
+  exportToCSV(headers, rows, 'strata-clients-' + todayStr() + '.csv');
+}
+
+function exportQuotations() {
+  const headers = ['ID','Client','Provider','Franchise Date','Franchise End',
+    'Initial Email Sent','TAT Date','Status','Date Released','Rates',
+    'TOR/SOB','Special Requests','Follow-Up Date'];
+  const rows = _exportData.quotations.map(q => [
+    q.id, q.client, q.provider, q.franchiseDate, q.franchiseEnd,
+    q.initialEmail, q.tat, q.status, q.dateReleased, q.rates,
+    q.torSob, q.requests, q.followUp
+  ]);
+  exportToCSV(headers, rows, 'strata-quotations-' + todayStr() + '.csv');
+}
+
+function exportCOA() {
+  const headers = ['Date','Client','Contact Type','Task Description','Assigned','Completed Date'];
+  const rows = _exportData.coa.map(c => [
+    c.date, c.client, c.contactType, c.task, c.assigned, c.completed
+  ]);
+  exportToCSV(headers, rows, 'strata-coa-' + todayStr() + '.csv');
+}
+
+function exportRenewals() {
+  const headers = ['Client','Insurance Type','Current Provider','Renewal Date',
+    'Days Remaining','Urgency','Assigned'];
+  const rows = _exportData.renewals.map(r => [
+    r.name, r.insType, r.currentProvider, r.renewal,
+    r.days !== null ? r.days : '', r.u ? r.u.label : '', r.assigned
+  ]);
+  exportToCSV(headers, rows, 'strata-renewals-' + todayStr() + '.csv');
+}
+
+function renderRenewalSummary() {
+  const el = document.getElementById('ren-summary');
+  if (!el) return;
+  const allRows = CLIENTS
+    .map(c => { const d = pd(c.renewal); const days = dd(d); return {...c, days, u: urg(days)}; })
+    .filter(r => r.days !== null && r.days >= 0)
+    .sort((a, b) => a.days - b.days);
+
+  const critical = allRows.filter(r => r.u.cat === 'critical');
+  const soon     = allRows.filter(r => r.u.cat === 'soon');
+  const upcoming = allRows.filter(r => r.u.cat === 'upcoming');
+  const future   = allRows.filter(r => r.u.cat === 'future');
+
+  const dateRange = arr => {
+    if (!arr.length) return '';
+    const first = fmt(pd(arr[0].renewal));
+    const last  = fmt(pd(arr[arr.length - 1].renewal));
+    return first === last ? first : first + ' – ' + last;
+  };
+
+  const clientRow = c =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+      <span style="font-weight:500">${c.name}</span>
+      <span style="font-size:12px;color:var(--text2)">${fmt(pd(c.renewal))} · ${c.insType||'—'} · ${c.assigned||'<span style="color:var(--text3)">unassigned</span>'}</span>
+    </div>`;
+
+  const upcomingToggleId = 'ren-summary-upcoming-detail';
+  const futureCount = future.length;
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:14px" id="ren-summary-card">
+      <div class="card-head no-print" style="padding-bottom:8px">
+        <h3>Renewal Alerts Summary</h3>
+        <span style="font-size:11px;color:var(--text3)">Excludes expired · ${allRows.length} active</span>
+      </div>
+      <div class="print-header" style="display:none;padding:0 16px 8px">
+        <div style="font-size:13px;font-weight:600">Strata Consultancy Group · Renewal Alerts · ${new Date().toLocaleDateString('en-PH',{month:'long',day:'numeric',year:'numeric'})}</div>
+      </div>
+      <div style="padding:0 16px 12px">
+
+        <!-- STAT CARDS -->
+        <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="flex:1;min-width:80px;background:var(--red-bg);border-left:3px solid var(--red);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--red)">${critical.length}</div>
+            <div style="font-size:11px;color:var(--red);font-weight:500">Critical</div>
+            <div style="font-size:10px;color:var(--text3)">≤14 days</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--amber-bg);border-left:3px solid var(--amber);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--amber)">${soon.length}</div>
+            <div style="font-size:11px;color:var(--amber);font-weight:500">Soon</div>
+            <div style="font-size:10px;color:var(--text3)">15–30 days</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--blue-bg);border-left:3px solid var(--blue);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--blue)">${upcoming.length}</div>
+            <div style="font-size:11px;color:var(--blue);font-weight:500">Upcoming</div>
+            <div style="font-size:10px;color:var(--text3)">31–90 days</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--gray-bg);border-left:3px solid var(--gray);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--gray)">${futureCount}</div>
+            <div style="font-size:11px;color:var(--gray);font-weight:500">Future</div>
+            <div style="font-size:10px;color:var(--text3)">91+ days</div>
+          </div>
+        </div>
+
+        <!-- CRITICAL GROUP -->
+        ${critical.length ? `
+          <div style="margin-bottom:10px">
+            <div style="font-size:11px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🔴 Critical (≤14 days)</div>
+            ${critical.map(clientRow).join('')}
+          </div>` : ''}
+
+        <!-- SOON GROUP -->
+        ${soon.length ? `
+          <div style="margin-bottom:10px">
+            <div style="font-size:11px;font-weight:600;color:var(--amber);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🟠 Soon (15–30 days)</div>
+            ${soon.map(clientRow).join('')}
+          </div>` : ''}
+
+        <!-- UPCOMING GROUP (collapsible on screen via toggle; CSS expands on print) -->
+        ${upcoming.length ? `
+          <div style="margin-bottom:10px">
+            <div style="font-size:11px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🔵 Upcoming (31–90 days)</div>
+            <button class="btn no-print" style="font-size:11px;height:24px;padding:0 10px;margin-bottom:6px" onclick="
+              var d=document.getElementById('${upcomingToggleId}');
+              var b=this;
+              if(d.style.display==='none'){d.style.display='block';b.textContent='▾ Collapse';}
+              else{d.style.display='none';b.textContent='▸ Show ${upcoming.length} clients';}
+            ">▸ Show ${upcoming.length} clients</button>
+            <div id="${upcomingToggleId}" style="display:none">
+              ${upcoming.map(clientRow).join('')}
+            </div>
+          </div>` : ''}
+
+        <!-- FUTURE GROUP -->
+        ${futureCount ? `
+          <div style="color:var(--text3);font-size:12px;padding:4px 0">
+            <span style="font-weight:500">Future (91+ days):</span> ${futureCount} client${futureCount===1?'':'s'} renewing after ${dateRange(upcoming.concat(future).slice(-1))||'90 days'}
+          </div>` : ''}
+
+      </div>
+    </div>`;
+}
+
+// ── PROVIDERS ──
+function renderProviders(){
+  document.getElementById('prov-tbody').innerHTML=PROVIDERS.map((p,i)=>`<tr><td class="td-bold">${p.provider}</td><td>${p.contact}</td><td>${p.honorifics}</td><td><a href="mailto:${p.email}" style="color:var(--accent2)">${p.email}</a></td><td style="font-size:12px;color:#6b6b63;white-space:normal">${p.cc}</td><td><button class="btn" style="font-size:11px;height:26px;padding:0 8px" onclick="openProviderModal(${i})">Edit</button></td></tr>`).join('');
+}
+
+// ── HISTORY APPEND WITH OAUTH RETRY ──
+async function appendHistoryWithRetry(sheetName, row, label){
+  try {
+    await appendToSheet(sheetName, row);
+    console.log(label + ' history saved ✓');
+  } catch(e){
+    if(e.message==='NO_TOKEN'||e.status===401||e.status===403){
+      // Token missing or expired - request access then retry once
+      toast('Sign in to save '+label+' history...','saving');
+      await new Promise(resolve=>{
+        requestWriteAccess(async ()=>{
+          try{
+            await appendToSheet(sheetName, row);
+            toast(label+' history saved ✓','success');
+          } catch(e2){
+            toast('Could not save '+label+' history: '+e2.message,'error');
+            console.error(label+' retry failed:',e2);
+          }
+          resolve();
+        });
+      });
+    } else {
+      toast('Could not save '+label+' history: '+e.message,'error');
+      console.error(label+' append error:',e);
+    }
+  }
+}
+
+// ── WRITE BACK HELPERS ──
+function clientToRow(c){return[c.id,c.name,c.contact,c.mobile,c.email,c.bizType,c.insType,c.currentProvider,c.renewal,c.provider,c.status,c.contactType,c.lastContact,c.nextFollowUp,c.assigned,c.notes,c.docs];}
+function quoteToRow(q){return[q.id,q.clientId,q.client,q.provider,q.franchiseDate,q.franchiseEnd,q.initialEmail,q.tat,q.status,q.dateReleased,q.rates,q.torSob,q.requests,q.threadId,q.followUp];}
+function coaToRow(c){return[c.date,c.clientId,c.client,c.contactType,c.task,c.assigned,c.completed];}
+function providerToRow(p){return[p.provider,p.email,p.honorifics,p.contact,p.cc];}
+
+// ── WRITE QUEUE (Fix 3: debounce + queue) ──
+// Prevents race conditions when a user saves quickly in succession.
+// Each key (sheet+record) has its own debounce timer. Pending calls are
+// cancelled if a newer one arrives within WRITE_DELAY ms.
+const WRITE_DELAY = 400; // ms
+const _writeTimers = {};
+const _writeQueue = {};
+
+function scheduleWrite(key, fn){
+  if(_writeTimers[key]) clearTimeout(_writeTimers[key]);
+  _writeQueue[key] = fn;
+  _writeTimers[key] = setTimeout(async ()=>{
+    const pending = _writeQueue[key];
+    delete _writeQueue[key];
+    delete _writeTimers[key];
+    if(pending) await pending();
+  }, WRITE_DELAY);
+}
+
+async function writeBack(sheet, rec, rowFn, idx, collection, isNew){
+  const key = sheet + ':' + (isNew ? 'new' : (rec._row || idx));
+  scheduleWrite(key, async ()=>{
+    setSyncStatus('saving');
+    const token = (window.gapi && gapi.client && gapi.client.getToken) ? gapi.client.getToken() : null;
+    if(!token || !token.access_token){
+      setSyncStatus('error');
+      toast('Opening Google sign-in for write access...','saving');
+      requestWriteAccess(()=> writeBack(sheet, rec, rowFn, idx, collection, isNew));
+      return;
+    }
+    try {
+      const row=rowFn(rec);
+      if(isNew){ await appendToSheet(sheet,row); }
+      else { const rowNum=(rec._row||(idx+2)); await updateSheetRow(sheet,rowNum,row); }
+      setSyncStatus('live');
+      toast('Saved to Google Sheets ✓','success');
+    } catch(e){
+      setSyncStatus('error');
+      if(e.status===401||e.status===403){
+        gapi.client.setToken(null);
+        toast('Session expired — re-authorizing...','saving');
+        requestWriteAccess(()=> writeBack(sheet, rec, rowFn, idx, collection, isNew));
+      } else {
+        toast('Saved locally only. Sheets error: '+e.message,'error');
+      }
+    }
+  });
+}
+
+// ── INLINE FORM ERROR HELPERS (Fix 2: replace alert()) ──
+function showFormError(modalSavingId, msg){
+  const el = document.getElementById(modalSavingId);
+  if(!el) return;
+  el.textContent = '⚠ ' + msg;
+  el.style.color = 'var(--red)';
+}
+function clearFormError(modalSavingId){
+  const el = document.getElementById(modalSavingId);
+  if(!el) return;
+  el.textContent = '';
+  el.style.color = '';
+}
+
+// ── CLIENT MODAL ──
+function openClientModal(idx){
+  editClientIdx=idx;
+  document.getElementById('cm-title').textContent=idx===null?'Add client':'Edit client';
+  const c=idx!==null?CLIENTS[idx]:{};
+  const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.value=val||''; };
+  set('f-name',c.name);set('f-contact',c.contact);set('f-mobile',c.mobile);set('f-email',c.email);
+  set('f-biztype',c.bizType);set('f-instype',c.insType);
+  set('f-renewal',c.renewal);set('f-status',c.status||'Newly Contacted');
+  set('f-contacttype',c.contactType);set('f-lastcontact',c.lastContact);
+  set('f-followup',c.nextFollowUp);set('f-notes',c.notes);set('f-docs',c.docs||'');
+  setChecked('f-curprovider', c.currentProvider);
+  setChecked('f-provider', c.provider);
+  setChecked('f-assigned', c.assigned);
+  document.getElementById('cm-saving').textContent='';
+  openModal('client-modal');
+}
+async function saveClient(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name){showFormError('cm-saving','Client name is required.');return;}
+  clearFormError('cm-saving');
+  const btn=document.getElementById('cm-save-btn');
+  btn.disabled=true; document.getElementById('cm-saving').textContent='Saving...';
+  const isNew=editClientIdx===null;
+  const rec={
+    id:isNew?nextClientID():CLIENTS[editClientIdx].id,
+    name, contact:document.getElementById('f-contact').value,
+    mobile:document.getElementById('f-mobile').value,
+    email:document.getElementById('f-email').value,
+    bizType:document.getElementById('f-biztype').value,
+    insType:document.getElementById('f-instype').value,
+    currentProvider:getChecked('f-curprovider'),
+    renewal:document.getElementById('f-renewal').value,
+    provider:getChecked('f-provider'),
+    status:document.getElementById('f-status').value,
+    contactType:document.getElementById('f-contacttype').value,
+    assigned:getChecked('f-assigned'),
+    lastContact:document.getElementById('f-lastcontact').value,
+    nextFollowUp:(()=>{
+      const lc=document.getElementById('f-lastcontact').value;
+      const st=document.getElementById('f-status').value;
+      const manual=document.getElementById('f-followup').value;
+      if(!lc) return manual;
+      const computed=computeNextFollowUp(new Date(lc),st);
+      // For For Presentation / Closing keep manual input
+      const s=st.toLowerCase();
+      if(s==='for presentation'||s==='closing') return manual;
+      return computed||manual;
+    })(),
+    notes:document.getElementById('f-notes').value,
+    docs:document.getElementById('f-docs').value,
+    _row:isNew?null:CLIENTS[editClientIdx]._row,
+  };
+  if(isNew){CLIENTS.push(rec);}else{CLIENTS[editClientIdx]=rec;}
+  saveLocalData();
+  await writeBack(CFG.clientsSheet,rec,clientToRow,editClientIdx,CLIENTS,isNew);
+  // Append snapshot to ClientSummary for history (mirrors Code.gs appendClientSummaryHistoryFromClientRow_)
+  await appendHistoryWithRetry(
+    CFG.clientSummarySheet||'ClientSummary',
+    [new Date().toLocaleString('en-PH'), rec.id, rec.name, rec.contact, rec.mobile,
+     rec.email, rec.bizType, rec.insType, rec.currentProvider, rec.renewal,
+     rec.provider, rec.status, rec.contactType, rec.lastContact, rec.nextFollowUp,
+     rec.assigned, rec.notes, rec.docs||''],
+    'ClientSummary'
+  );
+  // Update local CLIENT_HISTORY
+  CLIENT_HISTORY.unshift({
+    timestamp:new Date().toLocaleString('en-PH'),
+    clientId:rec.id, client:rec.name, contact:rec.contact,
+    status:rec.status, contactType:rec.contactType,
+    lastContact:rec.lastContact, nextFollowUp:rec.nextFollowUp,
+    assigned:rec.assigned, notes:rec.notes
+  });
+  saveLocalData();
+  btn.disabled=false;
+  closeModal('client-modal');
+  renderClients(); renderDashboard();
+}
+
+// ── QUOTE MODAL ──
+function openQuoteModal(idx){
+  editQuoteIdx=idx;
+  document.getElementById('qm-title').textContent=idx===null?'Add quotation':'Edit quotation';
+  const q=idx!==null?QUOTATIONS[idx]:{};
+  const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.value=val||''; };
+  set('qf-clientid',q.clientId);set('qf-client',q.client);set('qf-provider',q.provider);
+  set('qf-rates',q.rates);set('qf-fdate',q.franchiseDate);set('qf-fend',q.franchiseEnd);
+  set('qf-email',q.initialEmail);set('qf-released',q.dateReleased);
+  set('qf-tor',q.torSob);set('qf-followup',q.followUp);set('qf-requests',q.requests);
+  document.getElementById('qm-saving').textContent='';
+  openModal('quote-modal');
+}
+async function saveQuotation(){
+  const client=document.getElementById('qf-client').value.trim();
+  if(!client){showFormError('qm-saving','Client name is required.');return;}
+  clearFormError('qm-saving');
+  const btn=document.getElementById('qm-save-btn');
+  btn.disabled=true; document.getElementById('qm-saving').textContent='Saving...';
+  const isNew=editQuoteIdx===null;
+  const iemail=pd(document.getElementById('qf-email').value);
+  const fend=pd(document.getElementById('qf-fend').value);
+  const released=document.getElementById('qf-released').value;
+  let status='';
+  if(released) status='Released';
+  else if(fend&&dd(fend)<0) status='Franchise Expired';
+  else if(!iemail) status='No Email Sent';
+  else { const net=Math.floor((TODAY-iemail)/86400000); status=net<=7?'Within TAT':net<=10?'For Follow-Up':'Overdue'; }
+  let tat='';
+  if(iemail){ const t=new Date(iemail); t.setDate(t.getDate()+7); tat=t.toISOString().split('T')[0]; }
+  const rec={
+    id:isNew?nextQuoteID():QUOTATIONS[editQuoteIdx].id,
+    clientId:document.getElementById('qf-clientid').value,
+    client, provider:document.getElementById('qf-provider').value,
+    franchiseDate:document.getElementById('qf-fdate').value,
+    franchiseEnd:document.getElementById('qf-fend').value,
+    initialEmail:document.getElementById('qf-email').value,
+    tat, status,
+    dateReleased:released,
+    rates:document.getElementById('qf-rates').value,
+    torSob:document.getElementById('qf-tor').value,
+    requests:document.getElementById('qf-requests').value,
+    threadId:'', followUp:document.getElementById('qf-followup').value,
+    _row:isNew?null:QUOTATIONS[editQuoteIdx]._row,
+  };
+  if(isNew){QUOTATIONS.push(rec);}else{QUOTATIONS[editQuoteIdx]=rec;}
+  saveLocalData();
+  await writeBack(CFG.quotesSheet,rec,quoteToRow,editQuoteIdx,QUOTATIONS,isNew);
+  btn.disabled=false;
+  closeModal('quote-modal');
+  renderQuotations(); renderDashboard();
+}
+
+// ── COA MODAL ──
+function openCOAModal(idx){
+  editCOAIdx=idx;
+  document.getElementById('coam-title').textContent=idx===null?'Add COA task':'Edit COA task';
+  const c=idx!==null?COA_DATA[idx]:{};
+  const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.value=val||''; };
+
+  // Rebuild the Client ID dropdown from current CLIENTS list
+  const sel=document.getElementById('cf-clientid');
+  sel.innerHTML='<option value="">— Non-client task —</option>';
+  CLIENTS.forEach(client=>{
+    const opt=document.createElement('option');
+    opt.value=client.id;
+    opt.textContent=`${client.id} — ${client.name}`;
+    sel.appendChild(opt);
+  });
+
+  // Pre-select if editing an existing record
+  sel.value=c.clientId||'';
+  // Fill client name from selection
+  const matched=CLIENTS.find(cl=>cl.id===sel.value);
+  document.getElementById('cf-client').value=matched?matched.name:(c.client||'');
+
+  set('cf-date',c.date);
+  set('cf-type',c.contactType);setChecked('cf-assigned',c.assigned);set('cf-task',c.task);set('cf-completed',c.completed);
+  document.getElementById('coam-saving').textContent='';
+  openModal('coa-modal');
+}
+
+function coaClientIdChanged(){
+  const sel=document.getElementById('cf-clientid');
+  const clientName=document.getElementById('cf-client');
+  const matched=CLIENTS.find(c=>c.id===sel.value);
+  clientName.value=matched?matched.name:'';
+}
+async function saveCOA(){
+  const task=document.getElementById('cf-task').value.trim();
+  const date=document.getElementById('cf-date').value;
+  if(!task||!date){showFormError('coam-saving','Task and activity date are required.');return;}
+  clearFormError('coam-saving');
+  const btn=document.getElementById('coam-save-btn');
+  btn.disabled=true; document.getElementById('coam-saving').textContent='Saving...';
+  const isNew=editCOAIdx===null;
+  const clientId=document.getElementById('cf-clientid').value;
+  const matchedClient=CLIENTS.find(c=>c.id===clientId);
+  const clientName=matchedClient?matchedClient.name:document.getElementById('cf-client').value;
+  const rec={
+    date, clientId,
+    client:clientName,
+    contactType:document.getElementById('cf-type').value,
+    task, assigned:getChecked('cf-assigned'),
+    completed:document.getElementById('cf-completed').value,
+    _row:isNew?null:COA_DATA[editCOAIdx]._row,
+  };
+  if(isNew){COA_DATA.push(rec);}else{COA_DATA[editCOAIdx]=rec;}
+  saveLocalData();
+  await writeBack(CFG.coaSheet,rec,coaToRow,editCOAIdx,COA_DATA,isNew);
+  btn.disabled=false;
+  closeModal('coa-modal');
+  renderCOA(); renderDashboard();
+}
+
+// ── PROVIDER MODAL ──
+function openProviderModal(idx){
+  editProviderIdx=idx;
+  document.getElementById('pm-title').textContent=idx===null?'Add provider':'Edit provider';
+  const p=idx!==null?PROVIDERS[idx]:{};
+  const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.value=val||''; };
+  set('pf-provider',p.provider);set('pf-honorifics',p.honorifics);
+  set('pf-contact',p.contact);set('pf-email',p.email);set('pf-cc',p.cc);
+  document.getElementById('pm-saving').textContent='';
+  openModal('provider-modal');
+}
+async function saveProvider(){
+  const provider=document.getElementById('pf-provider').value.trim();
+  if(!provider){showFormError('pm-saving','Provider name is required.');return;}
+  clearFormError('pm-saving');
+  const btn=document.getElementById('pm-save-btn');
+  btn.disabled=true; document.getElementById('pm-saving').textContent='Saving...';
+  const isNew=editProviderIdx===null;
+  const rec={
+    provider, honorifics:document.getElementById('pf-honorifics').value,
+    contact:document.getElementById('pf-contact').value,
+    email:document.getElementById('pf-email').value,
+    cc:document.getElementById('pf-cc').value,
+    _row:isNew?null:PROVIDERS[editProviderIdx]._row,
+  };
+  if(isNew){PROVIDERS.push(rec);}else{PROVIDERS[editProviderIdx]=rec;}
+  saveLocalData();
+  await writeBack(CFG.providersSheet,rec,providerToRow,editProviderIdx,PROVIDERS,isNew);
+  btn.disabled=false;
+  closeModal('provider-modal');
+  renderProviders();
+}
+
+// ── QUICK-PEEK DRAWER ──
+let _qpActiveRow = null;
+
+function _qpOpen(){
+  document.getElementById('qp-drawer').classList.add('open');
+  document.getElementById('qp-overlay').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('qp-drawer').classList.remove('open');
+  document.getElementById('qp-overlay').classList.remove('open');
+  if(_qpActiveRow){ _qpActiveRow.style.background=''; _qpActiveRow=null; }
+}
+function _qpSetTabs(tabs, activeIdx){
+  document.getElementById('qp-tabs').innerHTML=tabs.map((t,i)=>
+    `<button class="qp-tab${i===activeIdx?' active':''}" onclick="_qpSwitchTab(${i})">${t}</button>`).join('');
+}
+function _qpSwitchTab(i){
+  document.querySelectorAll('.qp-tab').forEach((t,j)=>t.classList.toggle('active',i===j));
+  document.querySelectorAll('.qp-panel').forEach((p,j)=>p.classList.toggle('active',i===j));
+}
+
+// ── CLIENT DRAWER ──
+function openClientDrawer(idx){
+  const c=CLIENTS[idx];
+  if(!c) return;
+  document.getElementById('qp-type').textContent='Client record';
+  _qpSetTabs(['Overview','Edit','History'],0);
+
+  const d=pd(c.renewal); const days=dd(d); const u=urg(days);
+  const overdDays=c.nextFollowUp?Math.round((TODAY-new Date(c.nextFollowUp))/86400000):null;
+  const hist=CLIENT_HISTORY.filter(h=>h.clientId===c.id).slice(0,20);
+
+  document.getElementById('qp-body').innerHTML=`
+    <div class="qp-panel active" id="qpp-0">
+      <div class="qp-name">${c.name}</div>
+      <div class="qp-id">${c.id}</div>
+      ${stBadge(c.status)}
+      <div class="qp-divider"></div>
+      <div class="qp-field"><div class="qp-field-label">Assigned to</div><div class="qp-field-val">${c.assigned||'<span style="color:var(--text3);font-style:italic">unassigned</span>'}</div></div>
+      <div class="qp-field"><div class="qp-field-label">Next follow-up</div><div class="qp-field-val${overdDays!==null&&overdDays>0?' overdue':''}">${c.nextFollowUp?fmt(new Date(c.nextFollowUp)):'—'}${overdDays!==null&&overdDays>0?` · ${overdDays}d overdue`:''}</div></div>
+      <div class="qp-field"><div class="qp-field-label">Last contact</div><div class="qp-field-val">${c.lastContact?fmt(new Date(c.lastContact)):'—'}</div></div>
+      <div class="qp-field"><div class="qp-field-label">Current provider</div><div class="qp-field-val">${c.currentProvider||'—'}</div></div>
+      <div class="qp-field"><div class="qp-field-label">Target provider</div><div class="qp-field-val">${c.provider||'—'}</div></div>
+      <div class="qp-field"><div class="qp-field-label">Renewal date</div><div class="qp-field-val" style="color:${u.color};font-weight:500">${d?fmt(d):'—'}${days!==null?` · ${days<0?Math.abs(days)+'d expired':days+'d left'}`:''}</div></div>
+      <div class="qp-field"><div class="qp-field-label">Insurance type</div><div class="qp-field-val">${c.insType||'—'}</div></div>
+      <div class="qp-divider"></div>
+      <div class="qp-field-label" style="margin-bottom:6px">Notes</div>
+      <div class="qp-notes">${c.notes||'<span style="color:var(--text3);font-style:italic">No notes.</span>'}</div>
+      ${c.docs&&c.docs.startsWith('http')?`<div style="margin-top:10px"><a href="${c.docs}" target="_blank" style="font-size:12px;color:var(--accent2)">View docs ↗</a></div>`:''}
+    </div>
+
+    <div class="qp-panel" id="qpp-1">
+      <p class="qp-hint">Opens the full client form with every field. Any changes save to the Clients sheet and log to history automatically.</p>
+      <button class="qp-open-full" onclick="closeDrawer();openClientModal(${idx})">
+        <span>Open full form for ${c.name}</span><span style="color:var(--text3)">↗</span>
+      </button>
+    </div>
+
+    <div class="qp-panel" id="qpp-2">
+      ${hist.length?hist.map(h=>`
+        <div class="qp-history-entry">
+          <div class="qp-history-time">${h.timestamp||'—'}</div>
+          <div class="qp-history-body">
+            ${stBadge(h.status)}
+            ${h.contactType?`<span class="badge badge-gray" style="margin-left:4px">${h.contactType}</span>`:''}
+            <div style="margin-top:4px;color:var(--text2)">${h.notes||'—'}</div>
+            <div style="margin-top:2px;font-size:11px;color:var(--text3)">Assigned: ${h.assigned||'—'}</div>
+          </div>
+        </div>`).join(''):`<div class="empty" style="padding:20px 0">No history yet. History is logged each time the record is saved.</div>`}
+    </div>`;
+
+  document.getElementById('qp-foot').innerHTML=`<button class="qp-btn" onclick="closeDrawer()">Close</button>`;
+  _qpOpen();
+}
+
+// ── COA DRAWER ──
+function openCOADrawer(idx){
+  const task=COA_DATA[idx];
+  if(!task) return;
+  document.getElementById('qp-type').textContent='COA task';
+  _qpSetTabs(['Task detail','Complete'],0);
+
+  const typeBadge=t=>{const m={'Call/Text':'badge-teal','Email':'badge-gray','Visit/Meeting':'badge-amber','Presentation':'badge-purple'};return`<span class="badge ${m[t]||'badge-gray'}">${t||'—'}</span>`;};
+  const clientIdx=task.clientId?CLIENTS.findIndex(c=>c.id===task.clientId):-1;
+
+  document.getElementById('qp-body').innerHTML=`
+    <div class="qp-panel active" id="qpp-0">
+      <div class="qp-name" style="font-size:14px;margin-bottom:10px">${task.task}</div>
+      <div class="qp-field"><div class="qp-field-label">Client</div>
+        <div class="qp-field-val">${clientIdx>-1?`<span class="dash-clickable" onclick="closeDrawer();setTimeout(()=>openClientDrawer(${clientIdx}),250)">${task.client}</span>`:task.client||'<span style="color:var(--text3);font-style:italic">Non-client task</span>'}${task.clientId?` <span style="font-size:11px;color:var(--text3);font-family:\'DM Mono\',monospace">${task.clientId}</span>`:''}</div>
+      </div>
+      <div class="qp-field"><div class="qp-field-label">Assigned to</div><div class="qp-field-val">${task.assigned||'—'}</div></div>
+      <div class="qp-field"><div class="qp-field-label">Activity date</div><div class="qp-field-val">${task.date?fmt(new Date(task.date)):'—'}</div></div>
+      <div class="qp-field"><div class="qp-field-label">Contact type</div><div class="qp-field-val">${typeBadge(task.contactType)}</div></div>
+      <div class="qp-divider"></div>
+      <div class="qp-notes" style="color:var(--text3);font-style:italic">Not yet completed — go to the Complete tab to finish this task.</div>
+    </div>
+
+    <div class="qp-panel" id="qpp-1">
+      <div class="qp-field">
+        <div class="qp-field-label">Completion date</div>
+        <input class="qp-form-input" id="qp-coa-date" type="date" value="${new Date().toISOString().split('T')[0]}">
+      </div>
+      <div class="qp-field">
+        <div class="qp-field-label">New client status <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(optional — update if status changed)</span></div>
+        <select class="qp-form-select" id="qp-coa-status">
+          <option value="">Keep current status: ${task.clientId&&clientIdx>-1?CLIENTS[clientIdx].status:'N/A'}</option>
+          ${clientIdx>-1?STATUSES.map(s=>`<option value="${s}"${s===(clientIdx>-1?CLIENTS[clientIdx].status:'')?' selected':''}>${s}</option>`).join(''):''}
+        </select>
+      </div>
+      <div class="qp-field">
+        <div class="qp-field-label">Completion notes <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(optional)</span></div>
+        <div class="qp-notes" style="margin-bottom:6px">What happened? e.g. "Called client, confirmed meeting for June 3." Leave blank if nothing to add.</div>
+        <textarea class="qp-form-textarea" id="qp-coa-notes" placeholder="Leave blank if nothing to add..."></textarea>
+      </div>
+      <div style="font-size:11px;color:var(--text3);line-height:1.7;padding:8px 10px;background:var(--surface2);border-radius:var(--radius-sm)">
+        On save:<br>
+        ✓ COA task marked complete in COA sheet<br>
+        ✓ Logged to COA History<br>
+        ${clientIdx>-1?'✓ Client last contact date updated<br>✓ Client next follow-up auto-calculated<br>✓ Client status updated (if changed)<br>✓ Snapshot logged to Client History':'— No client linked to this task'}
+      </div>
+      <div id="qp-coa-msg" class="qp-save-msg"></div>
+    </div>`;
+
+  document.getElementById('qp-foot').innerHTML=`
+    <button class="qp-btn" onclick="closeDrawer()">Close</button>
+    <button class="qp-btn success" id="qp-complete-btn" onclick="drawerMarkComplete(${idx})">Mark as complete</button>`;
+  _qpOpen();
+}
+
+async function drawerMarkComplete(idx){
+  const task=COA_DATA[idx];
+  if(!task) return;
+  const completedDate=document.getElementById('qp-coa-date').value;
+  const notes=document.getElementById('qp-coa-notes').value.trim();
+  const newStatus=document.getElementById('qp-coa-status').value;
+  const msg=document.getElementById('qp-coa-msg');
+
+  if(!completedDate){ msg.textContent='Please set a completion date.'; msg.className='qp-save-msg err'; return; }
+
+  const btn=document.getElementById('qp-complete-btn');
+  btn.disabled=true; btn.textContent='Saving...';
+  msg.textContent=''; msg.className='qp-save-msg';
+
+  const completedDateObj=new Date(completedDate); completedDateObj.setHours(0,0,0,0);
+
+  // 1. Mark task complete
+  task.completed=completedDate;
+  if(notes) task.task=task.task+(notes?'\n'+notes:'');
+
+  // 2. Update linked client if exists
+  const clientIdx=task.clientId?CLIENTS.findIndex(c=>c.id===task.clientId):-1;
+  if(clientIdx>-1){
+    const client=CLIENTS[clientIdx];
+    if(task.contactType) client.contactType=task.contactType;
+    if(task.assigned) client.assigned=task.assigned;
+    client.lastContact=completedDate;
+    if(newStatus) client.status=newStatus;
+    // Auto-calculate next follow-up (manual date required for For Presentation / Closing)
+    const s=(client.status||'').toLowerCase();
+    if(s==='for presentation'||s==='closing'){
+      // don't overwrite — leave existing next follow-up
+    } else {
+      client.nextFollowUp=computeNextFollowUp(completedDateObj,client.status);
+    }
+    // Save client to sheets
+    await writeBack(CFG.clientsSheet,client,clientToRow,clientIdx,CLIENTS,false);
+    // Log to ClientSummary history
+    const csTs=new Date().toLocaleString('en-PH');
+    const histNote=`[COA completed] ${task.task}${notes?'\nNotes: '+notes:''}`;
+    await appendHistoryWithRetry(
+      CFG.clientSummarySheet||'ClientSummary',
+      [csTs,client.id,client.name,client.contact,client.mobile,
+       client.email,client.bizType,client.insType,client.currentProvider,
+       client.renewal,client.provider,client.status,client.contactType,
+       client.lastContact,client.nextFollowUp,client.assigned,histNote,client.docs||''],
+      'ClientSummary'
+    );
+    CLIENT_HISTORY.unshift({
+      timestamp:csTs,clientId:client.id,client:client.name,contact:client.contact,
+      status:client.status,contactType:client.contactType,lastContact:client.lastContact,
+      nextFollowUp:client.nextFollowUp,assigned:client.assigned,notes:histNote
+    });
+  }
+
+  // 3. Save completed COA row
+  await writeBack(CFG.coaSheet,task,coaToRow,idx,COA_DATA,false);
+
+  // 4. Log to COA History
+  const coaTs=new Date().toLocaleString('en-PH');
+  const coaSeq=(COA_HISTORY.length||0)+1;
+  await appendHistoryWithRetry(
+    CFG.coaHistorySheet||'MTaskHistory',
+    [coaTs,task.date,task.clientId||'',task.client||'',
+     task.contactType||'',task.task||'',task.assigned||'','YES',coaSeq],
+    'MTaskHistory'
+  );
+  COA_HISTORY.unshift({
+    timestamp:coaTs,activityDate:task.date,clientId:task.clientId,
+    client:task.client,contactType:task.contactType,task:task.task,
+    assigned:task.assigned,processed:'YES',sequence:coaSeq
+  });
+
+  saveLocalData();
+
+  // Update drawer UI to show completion
+  document.getElementById('qpp-0').innerHTML=`
+    <div class="qp-complete-banner">✓ Task completed on ${fmt(completedDateObj)}</div>
+    <div class="qp-name" style="font-size:14px;margin-bottom:10px">${task.task}</div>
+    <div class="qp-field"><div class="qp-field-label">Client</div><div class="qp-field-val">${task.client||'Non-client'}</div></div>
+    <div class="qp-field"><div class="qp-field-label">Assigned to</div><div class="qp-field-val">${task.assigned||'—'}</div></div>
+    <div class="qp-field"><div class="qp-field-label">Completion date</div><div class="qp-field-val">${fmt(completedDateObj)}</div></div>
+    ${notes?`<div class="qp-divider"></div><div class="qp-field-label" style="margin-bottom:6px">Completion notes</div><div class="qp-notes">${notes}</div>`:''}
+    <div style="margin-top:12px;font-size:11px;color:var(--text3);line-height:1.7">
+      ✓ COA sheet updated &nbsp;·&nbsp; ✓ COA History logged
+      ${clientIdx>-1?`<br>✓ Client last contact updated &nbsp;·&nbsp; ✓ Client history logged`:''}
+      ${newStatus&&clientIdx>-1?`<br>✓ Status updated to: ${newStatus}`:''}
+    </div>`;
+  _qpSwitchTab(0);
+
+  document.getElementById('qp-foot').innerHTML=`
+    <button class="qp-btn" onclick="closeDrawer()">Done</button>
+    <span style="font-size:12px;color:var(--green)">✓ Saved to Sheets & history</span>`;
+
+  toast(`Task completed ✓${clientIdx>-1?' — Client updated':''}`, 'success');
+  renderCOA();
+  renderDashboard();
+}
+
+// ── MODAL HELPERS ──
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ── GRANT WRITE ACCESS BUTTON ──
+// Available in Settings topbar
+function grantWriteAccess(){ requestWriteAccess(null); }
+
+// ── GAPI LOADER ──
+
+// ── INIT ──
+// ── DARK MODE ──
+function toggleDarkMode(){
+  const isDark=document.body.classList.toggle('dark');
+  localStorage.setItem('strata_dark', isDark?'1':'0');
+  updateDarkToggle(isDark);
+}
+function updateDarkToggle(isDark){
+  const icon=document.getElementById('dark-icon');
+  const label=document.getElementById('dark-label');
+  if(!icon||!label) return;
+  icon.textContent=isDark?'☀️':'🌙';
+  label.textContent=isDark?'Light mode':'Dark mode';
+}
+function initDarkMode(){
+  const saved=localStorage.getItem('strata_dark');
+  const isDark=saved==='1';
+  if(isDark) document.body.classList.add('dark');
+  updateDarkToggle(isDark);
+}
+initDarkMode();
+
+checkSession();
+pollForGSI(); // Fallback in case GSI onload missed
+</script>
+<!-- Load GAPI for write-back -->
+<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()">
+// ── FROZEN COLUMNS VIA JS ──
+// CSS sticky is broken when any ancestor has overflow:hidden.
+// Instead, we add col-freeze-1/2 classes to the first two cells of every tbl-freeze table.
+function applyFreezeClasses(){
+  document.querySelectorAll('table.tbl-freeze').forEach(table=>{
+    table.querySelectorAll('tr').forEach(row=>{
+      const cells=row.children;
+      if(cells.length>=1){
+        cells[0].classList.add('col-freeze-1');
+      }
+      if(cells.length>=2){
+        cells[1].classList.add('col-freeze-2');
+      }
+    });
+  });
+}
+
+// Patch all render functions to call applyFreezeClasses after they run
+const _origRenderClients = renderClients;
+renderClients = function(){ _origRenderClients.apply(this,arguments); applyFreezeClasses(); };
+
+const _origRenderClientHistory = renderClientHistory;
+renderClientHistory = function(){ _origRenderClientHistory.apply(this,arguments); applyFreezeClasses(); };
+
+const _origRenderReleased = renderReleased;
+renderReleased = function(){ _origRenderReleased.apply(this,arguments); applyFreezeClasses(); };
+
+// Run once on init
+setTimeout(applyFreezeClasses, 500);
+
+</script>
+</body>
+</html>
