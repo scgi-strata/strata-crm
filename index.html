@@ -380,6 +380,9 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
   [id^="ren-summary-upcoming-detail"] { display: block !important; }
 }
 
+/* Hide mobile-only elements on desktop */
+#mobile-tab-bar, #mobile-more-menu { display: none; }
+
 /* ── MOBILE RESPONSIVE (max-width: 767px) ── */
 @media (max-width: 767px) {
   /* 0. Body flex layout — tab bar reliably anchored at viewport bottom */
@@ -429,7 +432,7 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
 
   /* 9. Bottom tab bar — mobile only */
   #mobile-tab-bar {
-    display: flex !important;
+    display: flex;
     position: static;
     flex-shrink: 0;
     width: 100%;
@@ -3310,7 +3313,7 @@ document.addEventListener('click', function(e) {
 </script>
 
 <!-- Mobile Bottom Tab Bar -->
-<div id="mobile-tab-bar" style="display:none">
+<div id="mobile-tab-bar">
   <button class="mob-tab active" data-page="dashboard" onclick="mobileNav('dashboard')">
     <span class="mob-tab-icon">📊</span>
     <span class="mob-tab-label">Dashboard</span>
