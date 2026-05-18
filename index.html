@@ -920,10 +920,13 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
         <div class="form-group full"><div class="form-label">Client documentation (link)</div><input class="form-input" id="f-docs"></div>
       </div>
     </div>
-    <div class="modal-foot">
-      <span class="modal-saving" id="cm-saving"></span>
-      <button class="btn" onclick="closeModal('client-modal')">Cancel</button>
-      <button class="btn btn-primary" id="cm-save-btn" onclick="saveClient()">Save client</button>
+    <div class="modal-foot" style="justify-content:space-between">
+      <button class="btn" id="cm-delete-btn" onclick="closeModal('client-modal');showDeleteConfirm('client',editClientIdx)" style="background:var(--red-bg);color:var(--red);border-color:var(--red);display:none">🗑 Delete</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="modal-saving" id="cm-saving"></span>
+        <button class="btn" onclick="closeModal('client-modal')">Cancel</button>
+        <button class="btn btn-primary" id="cm-save-btn" onclick="saveClient()">Save client</button>
+      </div>
     </div>
   </div>
 </div>
@@ -953,10 +956,13 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
         <div class="form-group full"><div class="form-label">Special requests</div><textarea class="form-textarea" id="qf-requests"></textarea></div>
       </div>
     </div>
-    <div class="modal-foot">
-      <span class="modal-saving" id="qm-saving"></span>
-      <button class="btn" onclick="closeModal('quote-modal')">Cancel</button>
-      <button class="btn btn-primary" id="qm-save-btn" onclick="saveQuotation()">Save quotation</button>
+    <div class="modal-foot" style="justify-content:space-between">
+      <button class="btn" id="qm-delete-btn" onclick="closeModal('quote-modal');showDeleteConfirm('quotation',editQuoteIdx)" style="background:var(--red-bg);color:var(--red);border-color:var(--red);display:none">🗑 Delete</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="modal-saving" id="qm-saving"></span>
+        <button class="btn" onclick="closeModal('quote-modal')">Cancel</button>
+        <button class="btn btn-primary" id="qm-save-btn" onclick="saveQuotation()">Save quotation</button>
+      </div>
     </div>
   </div>
 </div>
@@ -993,10 +999,13 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
         <div class="form-group"><div class="form-label">Date completed</div><input class="form-input" id="cf-completed" type="date"></div>
       </div>
     </div>
-    <div class="modal-foot">
-      <span class="modal-saving" id="coam-saving"></span>
-      <button class="btn" onclick="closeModal('coa-modal')">Cancel</button>
-      <button class="btn btn-primary" id="coam-save-btn" onclick="saveCOA()">Save task</button>
+    <div class="modal-foot" style="justify-content:space-between">
+      <button class="btn" id="coam-delete-btn" onclick="closeModal('coa-modal');showDeleteConfirm('coa',editCOAIdx)" style="background:var(--red-bg);color:var(--red);border-color:var(--red);display:none">🗑 Delete</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="modal-saving" id="coam-saving"></span>
+        <button class="btn" onclick="closeModal('coa-modal')">Cancel</button>
+        <button class="btn btn-primary" id="coam-save-btn" onclick="saveCOA()">Save task</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1014,10 +1023,13 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
         <div class="form-group full"><div class="form-label">CC</div><input class="form-input" id="pf-cc" placeholder="email1@..., email2@..."></div>
       </div>
     </div>
-    <div class="modal-foot">
-      <span class="modal-saving" id="pm-saving"></span>
-      <button class="btn" onclick="closeModal('provider-modal')">Cancel</button>
-      <button class="btn btn-primary" id="pm-save-btn" onclick="saveProvider()">Save provider</button>
+    <div class="modal-foot" style="justify-content:space-between">
+      <button class="btn" id="pm-delete-btn" onclick="closeModal('provider-modal');showDeleteConfirm('provider',editProviderIdx)" style="background:var(--red-bg);color:var(--red);border-color:var(--red);display:none">🗑 Delete</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="modal-saving" id="pm-saving"></span>
+        <button class="btn" onclick="closeModal('provider-modal')">Cancel</button>
+        <button class="btn btn-primary" id="pm-save-btn" onclick="saveProvider()">Save provider</button>
+      </div>
     </div>
   </div>
 </div>
