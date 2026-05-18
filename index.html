@@ -863,6 +863,7 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
           <div class="form-group"><div class="form-label">Providers</div><input class="form-input" id="cfg-providers-sheet" value="ProviderEmails"></div>
           <div class="form-group"><div class="form-label">Client History (ClientSummary)</div><input class="form-input" id="cfg-clientsummary-sheet" value="ClientSummary"></div>
           <div class="form-group"><div class="form-label">COA History (COAHistory)</div><input class="form-input" id="cfg-coahistory-sheet" value="COAHistory"></div>
+          <div class="form-group"><div class="form-label">Deleted Records</div><input class="form-input" id="cfg-deleted-sheet" value="Deleted"></div>
         </div>
         <button class="btn btn-primary" style="margin-top:12px" onclick="saveSheetNames()">Save sheet names</button>
       </div>
@@ -1029,7 +1030,7 @@ const STATUSES = ['Newly Contacted','Negotiation','For Quotation','For Presentat
 
 // ── PASSCODE: stored only in localStorage, never hardcoded here ──
 // Set via Settings > Team passcode. Default is empty — admin must configure it on first run.
-let CFG = { sheetId:'', apiKey:'', clientId:'', clientsSheet:'Client', quotesSheet:'Quotations', coaSheet:'COA', providersSheet:'ProviderEmails', passcode:'' };
+let CFG = { sheetId:'', apiKey:'', clientId:'', clientsSheet:'Client', quotesSheet:'Quotations', coaSheet:'COA', providersSheet:'ProviderEmails', clientSummarySheet:'ClientSummary', coaHistorySheet:'COAHistory', deletedSheet:'Deleted', passcode:'' };
 let AUTH = { token: null, user: null, name: '', signedIn: false };
 let CLIENTS=[], QUOTATIONS=[], COA_DATA=[], PROVIDERS=[], CLIENT_HISTORY=[], COA_HISTORY=[];
 let coaTab='open', clientTab='active', quoteTab='pending', editClientIdx=null, editQuoteIdx=null, editCOAIdx=null, editProviderIdx=null;
@@ -1047,6 +1048,7 @@ function loadCFG(){
   document.getElementById('cfg-passcode').value=CFG.passcode||'';
   if(document.getElementById('cfg-clientsummary-sheet')) document.getElementById('cfg-clientsummary-sheet').value=CFG.clientSummarySheet||'ClientSummary';
   if(document.getElementById('cfg-coahistory-sheet')) document.getElementById('cfg-coahistory-sheet').value=CFG.coaHistorySheet||'COAHistory';
+  if(document.getElementById('cfg-deleted-sheet')) document.getElementById('cfg-deleted-sheet').value=CFG.deletedSheet||'Deleted';
   // inject OAuth client ID into GSI
   const gsiDiv=document.getElementById('g_id_onload');
   if(gsiDiv&&CFG.clientId) gsiDiv.setAttribute('data-client_id', CFG.clientId);
@@ -1069,6 +1071,7 @@ function saveSheetNames(){
   CFG.providersSheet=document.getElementById('cfg-providers-sheet').value.trim()||'ProviderEmails';
   CFG.clientSummarySheet=document.getElementById('cfg-clientsummary-sheet').value.trim()||'ClientSummary';
   CFG.coaHistorySheet=document.getElementById('cfg-coahistory-sheet').value.trim()||'COAHistory';
+  CFG.deletedSheet=document.getElementById('cfg-deleted-sheet').value.trim()||'Deleted';
   localStorage.setItem('strata_cfg2',JSON.stringify(CFG));
   toast('Sheet names saved','success');
 }
