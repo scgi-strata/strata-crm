@@ -338,6 +338,46 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
+
+/* ── PRINT STYLES ── */
+
+/* Screen: hide print-only elements */
+@media screen {
+  .print-only,
+  #dash-print-header,
+  #dash-print-charts { display: none !important; }
+}
+
+/* Print: hide screen chrome, show print elements */
+@media print {
+  /* Hide navigation and interactive controls */
+  .sidebar, .topbar, .no-print,
+  .filter-bar, .stab-row, #ren-metrics { display: none !important; }
+
+  /* Remove sidebar offset */
+  .main { margin-left: 0 !important; padding: 0 !important; }
+  .page { padding: 20px !important; }
+
+  /* Show print-only elements */
+  .print-only { display: block !important; }
+  #dash-print-header { display: block !important; margin-bottom: 16px; }
+  #dash-print-charts { display: block !important; margin-bottom: 16px; }
+  .print-header { display: block !important; }
+
+  /* Clean card styling */
+  .card { box-shadow: none !important; border: 1px solid #ccc !important; margin-bottom: 12px !important; }
+  body { background: #fff !important; color: #000 !important; font-size: 12px !important; }
+  canvas { display: none !important; }
+
+  /* Dashboard: expand all collapsibles */
+  .dash-coll-body { display: block !important; max-height: none !important; overflow: visible !important; }
+
+  /* Renewals: hide the renewals table card on print (summary panel is enough) */
+  #page-renewals .card:not(#ren-summary-card) { display: none !important; }
+
+  /* Renewals: expand the upcoming clients toggle on print */
+  [id^="ren-summary-upcoming-detail"] { display: block !important; }
+}
 </style>
 </head>
 <body>
