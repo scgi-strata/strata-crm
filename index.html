@@ -3262,6 +3262,48 @@ renderReleased = function(){ _origRenderReleased.apply(this,arguments); applyFre
 // Run once on init
 setTimeout(applyFreezeClasses, 500);
 
+// ── MOBILE NAVIGATION ──
+function mobileNav(pageId) {
+  // Close More menu if open
+  const moreMenu = document.getElementById('mobile-more-menu');
+  if (moreMenu) moreMenu.style.display = 'none';
+  // Navigate using existing showPage — pass null for btn (sidebar hidden on mobile)
+  showPage(pageId, null);
+  // Update active tab highlight
+  document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
+  const primaryTab = document.querySelector(`.mob-tab[data-page="${pageId}"]`);
+  if (primaryTab) primaryTab.classList.add('active');
+}
+
+function toggleMobileMore(btn) {
+  const menu = document.getElementById('mobile-more-menu');
+  if (!menu) return;
+  const isOpen = menu.style.display === 'block';
+  menu.style.display = isOpen ? 'none' : 'block';
+  // Toggle active state on the More tab
+  document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
+  if (!isOpen) btn.classList.add('active');
+}
+
+// Close More menu when tapping anywhere outside it
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('mobile-more-menu');
+  const moreBtn = document.querySelector('.mob-tab[data-page="more"]');
+  if (menu && menu.style.display === 'block') {
+    if (!menu.contains(e.target) && e.target !== moreBtn && !moreBtn.contains(e.target)) {
+      menu.style.display = 'none';
+      document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
+      // Re-highlight the currently active page tab
+      const activePage = document.querySelector('.page.active');
+      if (activePage) {
+        const pageId = activePage.id.replace('page-', '');
+        const tab = document.querySelector(`.mob-tab[data-page="${pageId}"]`);
+        if (tab) tab.classList.add('active');
+      }
+    }
+  }
+});
+
 </script>
 
 <!-- Mobile Bottom Tab Bar -->
