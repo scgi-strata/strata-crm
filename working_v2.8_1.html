@@ -1725,6 +1725,7 @@ function renderClients(){
     if(itf&&c.insType!==itf)return false;
     return true;
   });
+  _exportData.clients = f;
   document.getElementById('c-count').textContent=`${f.length} of ${CLIENTS.length}`;
   document.getElementById('c-tbody').innerHTML=f.length?f.map(c=>{
     const idx=CLIENTS.indexOf(c);
@@ -1822,6 +1823,7 @@ function renderQuotations(){
     if(pf&&qt.provider!==pf)return false;
     return true;
   });
+  _exportData.quotations = f;
   document.getElementById('q-count').textContent=`${f.length} quotations`;
   document.getElementById('q-tbody').innerHTML=f.length?f.map(qt=>{
     const idx=QUOTATIONS.indexOf(qt);
@@ -1852,6 +1854,7 @@ function renderCOA(){
     if(tf&&c.contactType!==tf)return false;
     return true;
   }).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  _exportData.coa = f;
   document.getElementById('coa-count').textContent=`${f.length} tasks`;
   document.getElementById('coa-tbody').innerHTML=f.length?f.map(c=>{
     const idx=COA_DATA.indexOf(c);
@@ -2042,6 +2045,7 @@ function renderRenewals(){
     <div class="metric-card"><div class="metric-label">Upcoming (31–90 days)</div><div class="metric-value info">${upcoming}</div><div class="metric-delta">Monitor & plan</div></div>
   `;
   const f=rows.filter(r=>{if(uf&&r.u.cat!==uf)return false;if(af&&!r.assigned.includes(af))return false;if(q&&!r.name.toLowerCase().includes(q)&&!r.id.toLowerCase().includes(q))return false;return true;});
+  _exportData.renewals = f;
   document.getElementById('r-count').textContent=`${f.length} clients`;
   document.getElementById('r-tbody').innerHTML=f.length?f.map(r=>`<tr><td class="td-mono">${r.id}</td><td class="td-bold">${r.name}</td><td>${r.currentProvider||'<span class="unassigned">—</span>'}</td><td>${fmt(r.dateObj)}</td><td>${daysCell(r.days)}</td><td><span class="badge ${r.u.cls}">${r.u.label}</span></td><td>${stBadge(r.status)}</td><td>${r.assigned||'<span class="unassigned">unassigned</span>'}</td><td>${r.insType}</td></tr>`).join(''):noData(9);
 }
