@@ -2737,6 +2737,8 @@ function showDeleteConfirm(type, idx) {
 }
 
 async function confirmDelete() {
+  const type = _pendingDeleteType;
+  const idx  = _pendingDeleteIdx;
   const passcode = document.getElementById('del-passcode').value.trim();
   const errEl = document.getElementById('del-error');
   if(!passcode){ errEl.textContent = 'Enter passcode to confirm.'; return; }
@@ -2746,7 +2748,7 @@ async function confirmDelete() {
   btn.disabled = true;
   btn.textContent = 'Deleting…';
   try {
-    await deleteRecord(_pendingDeleteType, _pendingDeleteIdx);
+    await deleteRecord(type, idx);
     closeModal('delete-confirm-modal');
     toast('Deleted — moved to Deleted sheet ✓', 'success');
   } catch(e) {
