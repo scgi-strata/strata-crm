@@ -382,9 +382,14 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
 
 /* ── MOBILE RESPONSIVE (max-width: 767px) ── */
 @media (max-width: 767px) {
+  /* 0. Body flex layout — tab bar reliably anchored at viewport bottom */
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .main { flex: 1; overflow-y: auto; min-height: 0; }
+
   /* 1. Hide sidebar, remove main offset */
   .sidebar { display: none !important; }
-  .main { margin-left: 0 !important; padding-bottom: 56px; }
+  .main { margin-left: 0 !important; }
 
   /* 2. Topbar — tighter on mobile */
   .topbar { padding: 0 14px; height: 48px; }
@@ -425,8 +430,9 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
   /* 9. Bottom tab bar — mobile only */
   #mobile-tab-bar {
     display: flex !important;
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
+    position: static;
+    flex-shrink: 0;
+    width: 100%;
     height: 56px;
     background: var(--surface);
     border-top: 1px solid var(--border2);
@@ -457,6 +463,7 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
     display: none;
     position: fixed;
     bottom: 56px; right: 0;
+    z-index: 300;
     width: 180px;
     background: var(--surface);
     border: 1px solid var(--border2);
