@@ -553,6 +553,7 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
         <select id="c-status" onchange="renderClients()"><option value="">All statuses</option></select>
         <select id="c-assigned" onchange="renderClients()"><option value="">All assignees</option></select>
         <select id="c-instype" onchange="renderClients()"><option value="">All insurance</option></select>
+        <button class="btn no-print" onclick="exportClients()" title="Export visible rows to CSV">⬇ Export CSV</button>
         <button class="btn btn-primary" onclick="openClientModal(null)">+ Add client</button>
       </div>
       <!-- Client sub-tabs -->
@@ -621,6 +622,7 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
       <div class="filter-bar">
         <input type="text" placeholder="🔍  Search quotations..." id="q-search" oninput="renderQuotations()">
         <select id="q-provider" onchange="renderQuotations()"><option value="">All providers</option></select>
+        <button class="btn no-print" onclick="exportQuotations()" title="Export visible rows to CSV">⬇ Export CSV</button>
         <button class="btn btn-primary" onclick="openQuoteModal(null)">+ Add quotation</button>
       </div>
       <div class="card">
@@ -644,6 +646,7 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
         <input type="text" placeholder="🔍  Search tasks..." id="coa-search" oninput="renderCOA()">
         <select id="coa-assigned" onchange="renderCOA()"><option value="">All assignees</option></select>
         <select id="coa-type" onchange="renderCOA()"><option value="">All contact types</option></select>
+        <button class="btn no-print" onclick="exportCOA()" title="Export visible rows to CSV">⬇ Export CSV</button>
         <button class="btn btn-primary" onclick="openCOAModal(null)">+ Add COA task</button>
       </div>
       <div class="card">
@@ -670,6 +673,8 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
           <option value="none">No renewal date</option>
         </select>
         <select id="r-assigned" onchange="renderRenewals()"><option value="">All assignees</option></select>
+        <button class="btn no-print" onclick="exportRenewals()" title="Export visible rows to CSV">⬇ Export CSV</button>
+        <button class="btn no-print" onclick="window.print()" title="Print renewal alerts report">🖨 Print</button>
       </div>
       <div class="card">
         <div class="card-head"><h3>Renewal tracker</h3><span class="card-count" id="r-count"></span></div>
