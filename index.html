@@ -384,7 +384,7 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
 @media (max-width: 767px) {
   /* 1. Hide sidebar, remove main offset */
   .sidebar { display: none !important; }
-  .main { margin-left: 0 !important; }
+  .main { margin-left: 0 !important; padding-bottom: 56px; }
 
   /* 2. Topbar — tighter on mobile */
   .topbar { padding: 0 14px; height: 48px; }
@@ -392,9 +392,6 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
 
   /* 3. Page padding — tighter */
   .page { padding: 12px 14px; }
-
-  /* 4. Add bottom padding to main so content doesn't hide behind tab bar */
-  .main { padding-bottom: 56px; }
 
   /* 5. Metric grid — 2 columns */
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
@@ -421,7 +418,6 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
   .modal-overlay .modal-body {
     flex: 1;
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
   }
   .modal-overlay .modal-head,
   .modal-overlay .modal-foot { flex-shrink: 0; }
@@ -434,7 +430,7 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
     height: 56px;
     background: var(--surface);
     border-top: 1px solid var(--border2);
-    z-index: 200;
+    z-index: 199;
     align-items: stretch;
   }
   .mob-tab {
