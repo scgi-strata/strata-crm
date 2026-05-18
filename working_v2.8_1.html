@@ -2046,6 +2046,79 @@ function renderRenewals(){
   document.getElementById('r-tbody').innerHTML=f.length?f.map(r=>`<tr><td class="td-mono">${r.id}</td><td class="td-bold">${r.name}</td><td>${r.currentProvider||'<span class="unassigned">—</span>'}</td><td>${fmt(r.dateObj)}</td><td>${daysCell(r.days)}</td><td><span class="badge ${r.u.cls}">${r.u.label}</span></td><td>${stBadge(r.status)}</td><td>${r.assigned||'<span class="unassigned">unassigned</span>'}</td><td>${r.insType}</td></tr>`).join(''):noData(9);
 }
 
+// ── CSV EXPORT ──
+function exportToCSV(headers, rows, filename) {
+  const escape = val => {
+    if (val === null || val === undefined) return '';
+    const s = String(val);
+    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+      ? '"' + s.replace(/"/g, '""') + '"'
+      : s;
+  };
+  const lines = [
+    headers.map(escape).join(','),
+    ...rows.map(r => r.map(escape).join(','))
+  ];
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+
+function exportClients() {
+  const headers = ['ID','Name','Contact Person','Mobile','Email','Business Type',
+    'Insurance Type','Current Provider','Renewal Date','Pipeline Status',
+    'Last Contact','Next Follow-Up','Assigned','Notes'];
+  const rows = _exportData.clients.map(c => [
+    c.id, c.name, c.contact, c.mobile, c.email, c.bizType,
+    c.insType, c.currentProvider, c.renewal, c.status,
+    c.lastContact, c.nextFollowUp, c.assigned, c.notes
+  ]);
+  exportToCSV(headers, rows, 'strata-clients-' + todayStr() + '.csv');
+}
+
+function exportQuotations() {
+  const headers = ['ID','Client','Provider','Franchise Date','Franchise End',
+    'Initial Email Sent','TAT Date','Status','Date Released','Rates',
+    'TOR/SOB','Special Requests','Follow-Up Date'];
+  const rows = _exportData.quotations.map(q => [
+    q.id, q.client, q.provider, q.franchiseDate, q.franchiseEnd,
+    q.initialEmail, q.tat, q.status, q.dateReleased, q.rates,
+    q.torSob, q.requests, q.followUp
+  ]);
+  exportToCSV(headers, rows, 'strata-quotations-' + todayStr() + '.csv');
+}
+
+function exportCOA() {
+  const headers = ['Date','Client','Contact Type','Task Description','Assigned','Completed Date'];
+  const rows = _exportData.coa.map(c => [
+    c.date, c.client, c.contactType, c.task, c.assigned, c.completed
+  ]);
+  exportToCSV(headers, rows, 'strata-coa-' + todayStr() + '.csv');
+}
+
+function exportRenewals() {
+  const headers = ['Client','Insurance Type','Current Provider','Renewal Date',
+    'Days Remaining','Urgency','Assigned'];
+  const rows = _exportData.renewals.map(r => [
+    r.name, r.insType, r.currentProvider, r.renewal,
+    r.days !== null ? r.days : '', r.u ? r.u.label : '', r.assigned
+  ]);
+  exportToCSV(headers, rows, 'strata-renewals-' + todayStr() + '.csv');
+}
+
 // ── PROVIDERS ──
 function renderProviders(){
   document.getElementById('prov-tbody').innerHTML=PROVIDERS.map((p,i)=>`<tr><td class="td-bold">${p.provider}</td><td>${p.contact}</td><td>${p.honorifics}</td><td><a href="mailto:${p.email}" style="color:var(--accent2)">${p.email}</a></td><td style="font-size:12px;color:#6b6b63;white-space:normal">${p.cc}</td><td><button class="btn" style="font-size:11px;height:26px;padding:0 8px" onclick="openProviderModal(${i})">Edit</button></td></tr>`).join('');
