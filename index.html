@@ -3109,6 +3109,7 @@ function grantWriteAccess(){ requestWriteAccess(null); }
 function toggleDarkMode(){
   const isDark=document.body.classList.toggle('dark');
   localStorage.setItem('strata_dark', isDark?'1':'0');
+  if(!isDark) document.documentElement.classList.remove('dark-early');
   updateDarkToggle(isDark);
 }
 function updateDarkToggle(isDark){
