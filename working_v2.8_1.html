@@ -495,7 +495,7 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
 
       <!-- PRINT BUTTON (screen: visible, print: hidden) -->
       <div class="no-print" style="display:flex;justify-content:flex-end;margin-bottom:10px">
-        <button class="btn" onclick="document.getElementById('dash-print-date').textContent=new Date().toLocaleDateString('en-PH',{month:'long',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});window.print();" title="Print dashboard report">🖨 Print Dashboard</button>
+        <button class="btn" onclick="document.getElementById('dash-print-date').textContent=new Date().toLocaleString('en-PH',{month:'long',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true});window.print();" title="Print dashboard report">🖨 Print Dashboard</button>
       </div>
 
       <!-- TOP METRICS -->
