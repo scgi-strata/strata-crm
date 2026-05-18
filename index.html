@@ -2501,6 +2501,7 @@ function openClientModal(idx){
   setChecked('f-provider', c.provider);
   setChecked('f-assigned', c.assigned);
   document.getElementById('cm-saving').textContent='';
+  document.getElementById('cm-delete-btn').style.display = idx !== null ? 'inline-flex' : 'none';
   openModal('client-modal');
 }
 async function saveClient(){
@@ -2576,6 +2577,7 @@ function openQuoteModal(idx){
   set('qf-email',q.initialEmail);set('qf-released',q.dateReleased);
   set('qf-tor',q.torSob);set('qf-followup',q.followUp);set('qf-requests',q.requests);
   document.getElementById('qm-saving').textContent='';
+  document.getElementById('qm-delete-btn').style.display = idx !== null ? 'inline-flex' : 'none';
   openModal('quote-modal');
 }
 async function saveQuotation(){
@@ -2644,6 +2646,7 @@ function openCOAModal(idx){
   set('cf-date',c.date);
   set('cf-type',c.contactType);setChecked('cf-assigned',c.assigned);set('cf-task',c.task);set('cf-completed',c.completed);
   document.getElementById('coam-saving').textContent='';
+  document.getElementById('coam-delete-btn').style.display = idx !== null ? 'inline-flex' : 'none';
   openModal('coa-modal');
 }
 
@@ -2689,6 +2692,7 @@ function openProviderModal(idx){
   set('pf-provider',p.provider);set('pf-honorifics',p.honorifics);
   set('pf-contact',p.contact);set('pf-email',p.email);set('pf-cc',p.cc);
   document.getElementById('pm-saving').textContent='';
+  document.getElementById('pm-delete-btn').style.display = idx !== null ? 'inline-flex' : 'none';
   openModal('provider-modal');
 }
 async function saveProvider(){
