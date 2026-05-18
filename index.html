@@ -3290,7 +3290,7 @@ document.addEventListener('click', function(e) {
   const menu = document.getElementById('mobile-more-menu');
   const moreBtn = document.querySelector('.mob-tab[data-page="more"]');
   if (menu && menu.style.display === 'block') {
-    if (!menu.contains(e.target) && e.target !== moreBtn && !moreBtn.contains(e.target)) {
+    if (!menu.contains(e.target) && (!moreBtn || (e.target !== moreBtn && !moreBtn.contains(e.target)))) {
       menu.style.display = 'none';
       document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
       // Re-highlight the currently active page tab
