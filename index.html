@@ -2034,7 +2034,7 @@ function renderCOA(){
 }
 
 // ── COMPLETION DATE PROMPT ──
-function promptCompletionDate(){
+function promptCompletionDate(hasClient){
   return new Promise((resolve)=>{
     // Remove any existing prompt
     const existing=document.getElementById('completion-date-modal');
@@ -2050,7 +2050,13 @@ function promptCompletionDate(){
         <div style="font-size:15px;font-weight:600;margin-bottom:6px">Date completed</div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:16px">When was this task completed?</div>
         <input type="date" id="completion-date-input" value="${today}"
+          style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;color:var(--text);background:var(--surface);outline:none;margin-bottom:${hasClient?'20px':'16px'}">
+        ${hasClient?`
+        <div style="font-size:13px;font-weight:500;margin-bottom:6px">Next follow-up date <span style="font-weight:400;color:var(--text3)">(optional)</span></div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Leave blank to keep the existing date.</div>
+        <input type="date" id="completion-followup-input"
           style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;color:var(--text);background:var(--surface);outline:none;margin-bottom:16px">
+        `:''}
         <div style="display:flex;justify-content:flex-end;gap:8px">
           <button id="completion-cancel" style="height:34px;padding:0 16px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:transparent;font-family:inherit;font-size:13px;cursor:pointer">Cancel</button>
           <button id="completion-confirm" style="height:34px;padding:0 16px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:#fff;font-family:inherit;font-size:13px;cursor:pointer;font-weight:500">Confirm</button>
@@ -2061,9 +2067,10 @@ function promptCompletionDate(){
     document.body.appendChild(overlay);
 
     document.getElementById('completion-confirm').onclick=()=>{
-      const val=document.getElementById('completion-date-input').value;
+      const date=document.getElementById('completion-date-input').value;
+      const followUp=hasClient?(document.getElementById('completion-followup-input').value||''):'';
       overlay.remove();
-      resolve(val||today);
+      resolve({date:date||today, followUp});
     };
     document.getElementById('completion-cancel').onclick=()=>{
       overlay.remove();
@@ -2086,12 +2093,13 @@ async function completeCOATask(idx){
   const task = COA_DATA[idx];
   if(!task || task.completed) return;
 
-  // Ask for completion date first
-  const dateInput = await promptCompletionDate();
-  if(!dateInput) return; // cancelled
+  // Ask for completion date (and optional next follow-up if task is client-linked)
+  const promptResult = await promptCompletionDate(!!task.clientId);
+  if(!promptResult) return; // cancelled
 
-  const today = dateInput;
-  const todayDate = new Date(dateInput); todayDate.setHours(0,0,0,0);
+  const today = promptResult.date;
+  const newFollowUp = promptResult.followUp;
+  const todayDate = new Date(today); todayDate.setHours(0,0,0,0);
 
   toast('Completing task...','saving');
 
@@ -2109,8 +2117,7 @@ async function completeCOATask(idx){
       if(task.contactType) client.contactType = task.contactType;
       if(task.assigned) client.assigned = task.assigned;
       client.lastContact = today;
-
-      // Next follow-up date is manual — preserve existing value
+      if(newFollowUp) client.nextFollowUp = newFollowUp;
 
       // Save client row to Google Sheets
       await writeBack(CFG.clientsSheet, client, clientToRow, ci, CLIENTS, false);
@@ -2157,34 +2164,7 @@ async function completeCOATask(idx){
   renderDashboard();
 }
 
-// Mirrors computeNextFollowUpDateByStatus_ from Code.gs
-function computeNextFollowUp(baseDate, status){
-  if(!baseDate) return '';
-  const s=(status||'').trim().toLowerCase();
-  let d = new Date(baseDate);
-  if(s==='newly contacted') return addWorkingDays(d,5);
-  if(s==='negotiation') return addCalendarDays(d,7);
-  if(s==='for quotation') return addWorkingDays(d,7);
-  if(s==='for presentation'||s==='closing') return ''; // requires manual date input
-  if(s==='closed won'||s==='closed lost') return '';
-  return addWorkingDays(d,5);
-}
-
 function toLocalDateStr(d){const yr=d.getFullYear();const mo=String(d.getMonth()+1).padStart(2,'0');const dy=String(d.getDate()).padStart(2,'0');return`${yr}-${mo}-${dy}`;}
-
-function addWorkingDays(date, days){
-  let d=new Date(date); let count=0;
-  while(count<days){ d.setDate(d.getDate()+1); if(d.getDay()!==0&&d.getDay()!==6) count++; }
-  return toLocalDateStr(d);
-}
-
-function addCalendarDays(date, days){
-  let d=new Date(date); d.setDate(d.getDate()+days);
-  // adjust to next weekday if on weekend
-  if(d.getDay()===0) d.setDate(d.getDate()+1);
-  if(d.getDay()===6) d.setDate(d.getDate()+2);
-  return toLocalDateStr(d);
-}
 
 // ── RENEWALS ──
 function renderRenewals(){
@@ -2519,14 +2499,15 @@ function openClientModal(idx){
   openModal('client-modal');
 }
 async function saveClient(){
+  const myIdx=editClientIdx; // snapshot — prevents stale index if CLIENTS shifts during async ops
   const name=document.getElementById('f-name').value.trim();
   if(!name){showFormError('cm-saving','Client name is required.');return;}
   clearFormError('cm-saving');
   const btn=document.getElementById('cm-save-btn');
   btn.disabled=true; document.getElementById('cm-saving').textContent='Saving...';
-  const isNew=editClientIdx===null;
+  const isNew=myIdx===null;
   const rec={
-    id:isNew?nextClientID():CLIENTS[editClientIdx].id,
+    id:isNew?nextClientID():CLIENTS[myIdx].id,
     name, contact:document.getElementById('f-contact').value,
     mobile:document.getElementById('f-mobile').value,
     email:document.getElementById('f-email').value,
@@ -2542,9 +2523,9 @@ async function saveClient(){
     nextFollowUp:document.getElementById('f-followup').value,
     notes:document.getElementById('f-notes').value,
     docs:document.getElementById('f-docs').value,
-    _row:isNew?null:CLIENTS[editClientIdx]._row,
+    _row:isNew?null:CLIENTS[myIdx]._row,
   };
-  if(isNew){CLIENTS.push(rec);}else{CLIENTS[editClientIdx]=rec;}
+  if(isNew){CLIENTS.push(rec);}else{CLIENTS[myIdx]=rec;}
   // Update local CLIENT_HISTORY synchronously
   CLIENT_HISTORY.unshift({
     timestamp:new Date().toLocaleString('en-PH'),
@@ -2559,7 +2540,7 @@ async function saveClient(){
   closeModal('client-modal');
   renderClients(); renderDashboard();
   // Write to Sheets in background (non-blocking)
-  writeBack(CFG.clientsSheet,rec,clientToRow,editClientIdx,CLIENTS,isNew);
+  writeBack(CFG.clientsSheet,rec,clientToRow,myIdx,CLIENTS,isNew);
   appendHistoryWithRetry(
     CFG.clientSummarySheet||'ClientSummary',
     [new Date().toLocaleString('en-PH'), rec.id, rec.name, rec.contact, rec.mobile,
@@ -2978,6 +2959,11 @@ function openCOADrawer(idx){
           ${clientIdx>-1?STATUSES.map(s=>`<option value="${s}"${s===(clientIdx>-1?CLIENTS[clientIdx].status:'')?' selected':''}>${s}</option>`).join(''):''}
         </select>
       </div>
+      ${task.clientId?`
+      <div class="qp-field">
+        <div class="qp-field-label">Next follow-up date <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(optional — leave blank to keep existing)</span></div>
+        <input class="qp-form-input" id="qp-coa-followup" type="date">
+      </div>`:''}
       <div class="qp-field">
         <div class="qp-field-label">Completion notes <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(optional)</span></div>
         <div class="qp-notes" style="margin-bottom:6px">What happened? e.g. "Called client, confirmed meeting for June 3." Leave blank if nothing to add.</div>
@@ -3004,6 +2990,7 @@ async function drawerMarkComplete(idx){
   const completedDate=document.getElementById('qp-coa-date').value;
   const notes=document.getElementById('qp-coa-notes').value.trim();
   const newStatus=document.getElementById('qp-coa-status').value;
+  const newFollowUp=task.clientId?(document.getElementById('qp-coa-followup')?.value||''):'';
   const msg=document.getElementById('qp-coa-msg');
 
   if(!completedDate){ msg.textContent='Please set a completion date.'; msg.className='qp-save-msg err'; return; }
@@ -3013,10 +3000,11 @@ async function drawerMarkComplete(idx){
   msg.textContent=''; msg.className='qp-save-msg';
 
   const completedDateObj=new Date(completedDate); completedDateObj.setHours(0,0,0,0);
+  const finalTaskText=notes?task.task+'\n'+notes:task.task;
 
   // 1. Mark task complete
   task.completed=completedDate;
-  if(notes) task.task=task.task+(notes?'\n'+notes:'');
+  task.task=finalTaskText;
 
   // 2. Update linked client if exists
   const clientIdx=task.clientId?CLIENTS.findIndex(c=>c.id===task.clientId):-1;
@@ -3026,13 +3014,12 @@ async function drawerMarkComplete(idx){
     if(task.assigned) client.assigned=task.assigned;
     client.lastContact=completedDate;
     if(newStatus) client.status=newStatus;
-    // Auto-calculate next follow-up (manual date required for For Presentation / Closing)
-    // Next follow-up date is manual — preserve existing value
+    if(newFollowUp) client.nextFollowUp=newFollowUp;
     // Save client to sheets
     await writeBack(CFG.clientsSheet,client,clientToRow,clientIdx,CLIENTS,false);
     // Log to ClientSummary history
     const csTs=new Date().toLocaleString('en-PH');
-    const histNote=`[COA completed] ${task.task}${notes?'\nNotes: '+notes:''}`;
+    const histNote=`[COA completed] ${finalTaskText}`;
     await appendHistoryWithRetry(
       CFG.clientSummarySheet||'ClientSummary',
       [csTs,client.id,client.name,client.contact,client.mobile,
@@ -3130,7 +3117,8 @@ checkSession();
 pollForGSI(); // Fallback in case GSI onload missed
 </script>
 <!-- Load GAPI for write-back -->
-<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()">
+<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script>
 // ── FROZEN COLUMNS VIA JS ──
 // CSS sticky is broken when any ancestor has overflow:hidden.
 // Instead, we add col-freeze-1/2 classes to the first two cells of every tbl-freeze table.
@@ -3160,7 +3148,6 @@ renderReleased = function(){ _origRenderReleased.apply(this,arguments); applyFre
 
 // Run once on init
 setTimeout(applyFreezeClasses, 500);
-
 </script>
 </body>
 </html>
