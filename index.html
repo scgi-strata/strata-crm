@@ -2110,8 +2110,7 @@ async function completeCOATask(idx){
       if(task.assigned) client.assigned = task.assigned;
       client.lastContact = today;
 
-      // Compute Next Follow-up Date by status (mirrors computeNextFollowUpDateByStatus_)
-      client.nextFollowUp = computeNextFollowUp(todayDate, client.status);
+      // Next follow-up date is manual — preserve existing value
 
       // Save client row to Google Sheets
       await writeBack(CFG.clientsSheet, client, clientToRow, ci, CLIENTS, false);
@@ -2540,17 +2539,7 @@ async function saveClient(){
     contactType:document.getElementById('f-contacttype').value,
     assigned:getChecked('f-assigned'),
     lastContact:document.getElementById('f-lastcontact').value,
-    nextFollowUp:(()=>{
-      const lc=document.getElementById('f-lastcontact').value;
-      const st=document.getElementById('f-status').value;
-      const manual=document.getElementById('f-followup').value;
-      if(!lc) return manual;
-      const computed=computeNextFollowUp(new Date(lc),st);
-      // For For Presentation / Closing keep manual input
-      const s=st.toLowerCase();
-      if(s==='for presentation'||s==='closing') return manual;
-      return computed||manual;
-    })(),
+    nextFollowUp:document.getElementById('f-followup').value,
     notes:document.getElementById('f-notes').value,
     docs:document.getElementById('f-docs').value,
     _row:isNew?null:CLIENTS[editClientIdx]._row,
@@ -3038,12 +3027,7 @@ async function drawerMarkComplete(idx){
     client.lastContact=completedDate;
     if(newStatus) client.status=newStatus;
     // Auto-calculate next follow-up (manual date required for For Presentation / Closing)
-    const s=(client.status||'').toLowerCase();
-    if(s==='for presentation'||s==='closing'){
-      // don't overwrite — leave existing next follow-up
-    } else {
-      client.nextFollowUp=computeNextFollowUp(completedDateObj,client.status);
-    }
+    // Next follow-up date is manual — preserve existing value
     // Save client to sheets
     await writeBack(CFG.clientsSheet,client,clientToRow,clientIdx,CLIENTS,false);
     // Log to ClientSummary history
