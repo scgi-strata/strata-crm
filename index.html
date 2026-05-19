@@ -2040,7 +2040,7 @@ function promptCompletionDate(){
     const existing=document.getElementById('completion-date-modal');
     if(existing) existing.remove();
 
-    const today=new Date().toISOString().split('T')[0];
+    const today=toLocalDateStr(new Date());
     const overlay=document.createElement('div');
     overlay.id='completion-date-modal';
     overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:999;display:flex;align-items:center;justify-content:center';
@@ -2171,10 +2171,12 @@ function computeNextFollowUp(baseDate, status){
   return addWorkingDays(d,5);
 }
 
+function toLocalDateStr(d){const yr=d.getFullYear();const mo=String(d.getMonth()+1).padStart(2,'0');const dy=String(d.getDate()).padStart(2,'0');return`${yr}-${mo}-${dy}`;}
+
 function addWorkingDays(date, days){
   let d=new Date(date); let count=0;
   while(count<days){ d.setDate(d.getDate()+1); if(d.getDay()!==0&&d.getDay()!==6) count++; }
-  return d.toISOString().split('T')[0];
+  return toLocalDateStr(d);
 }
 
 function addCalendarDays(date, days){
@@ -2182,7 +2184,7 @@ function addCalendarDays(date, days){
   // adjust to next weekday if on weekend
   if(d.getDay()===0) d.setDate(d.getDate()+1);
   if(d.getDay()===6) d.setDate(d.getDate()+2);
-  return d.toISOString().split('T')[0];
+  return toLocalDateStr(d);
 }
 
 // ── RENEWALS ──
@@ -2609,7 +2611,7 @@ async function saveQuotation(){
   else if(!iemail) status='No Email Sent';
   else { const net=Math.floor((TODAY-iemail)/86400000); status=net<=7?'Within TAT':net<=10?'For Follow-Up':'Overdue'; }
   let tat='';
-  if(iemail){ const t=new Date(iemail); t.setDate(t.getDate()+7); tat=t.toISOString().split('T')[0]; }
+  if(iemail){ const t=new Date(iemail); t.setDate(t.getDate()+7); tat=toLocalDateStr(t); }
   const rec={
     id:isNew?nextQuoteID():QUOTATIONS[editQuoteIdx].id,
     clientId:document.getElementById('qf-clientid').value,
@@ -2978,7 +2980,7 @@ function openCOADrawer(idx){
     <div class="qp-panel" id="qpp-1">
       <div class="qp-field">
         <div class="qp-field-label">Completion date</div>
-        <input class="qp-form-input" id="qp-coa-date" type="date" value="${new Date().toISOString().split('T')[0]}">
+        <input class="qp-form-input" id="qp-coa-date" type="date" value="${toLocalDateStr(new Date())}">
       </div>
       <div class="qp-field">
         <div class="qp-field-label">New client status <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(optional — update if status changed)</span></div>
