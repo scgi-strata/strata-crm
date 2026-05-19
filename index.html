@@ -2541,18 +2541,7 @@ async function saveClient(){
     _row:isNew?null:CLIENTS[editClientIdx]._row,
   };
   if(isNew){CLIENTS.push(rec);}else{CLIENTS[editClientIdx]=rec;}
-  saveLocalData();
-  await writeBack(CFG.clientsSheet,rec,clientToRow,editClientIdx,CLIENTS,isNew);
-  // Append snapshot to ClientSummary for history (mirrors Code.gs appendClientSummaryHistoryFromClientRow_)
-  await appendHistoryWithRetry(
-    CFG.clientSummarySheet||'ClientSummary',
-    [new Date().toLocaleString('en-PH'), rec.id, rec.name, rec.contact, rec.mobile,
-     rec.email, rec.bizType, rec.insType, rec.currentProvider, rec.renewal,
-     rec.provider, rec.status, rec.contactType, rec.lastContact, rec.nextFollowUp,
-     rec.assigned, rec.notes, rec.docs||''],
-    'ClientSummary'
-  );
-  // Update local CLIENT_HISTORY
+  // Update local CLIENT_HISTORY synchronously
   CLIENT_HISTORY.unshift({
     timestamp:new Date().toLocaleString('en-PH'),
     clientId:rec.id, client:rec.name, contact:rec.contact,
@@ -2561,9 +2550,20 @@ async function saveClient(){
     assigned:rec.assigned, notes:rec.notes
   });
   saveLocalData();
+  // Re-enable button and close modal immediately — don't block on async Sheets operations
   btn.disabled=false;
   closeModal('client-modal');
   renderClients(); renderDashboard();
+  // Write to Sheets in background (non-blocking)
+  writeBack(CFG.clientsSheet,rec,clientToRow,editClientIdx,CLIENTS,isNew);
+  appendHistoryWithRetry(
+    CFG.clientSummarySheet||'ClientSummary',
+    [new Date().toLocaleString('en-PH'), rec.id, rec.name, rec.contact, rec.mobile,
+     rec.email, rec.bizType, rec.insType, rec.currentProvider, rec.renewal,
+     rec.provider, rec.status, rec.contactType, rec.lastContact, rec.nextFollowUp,
+     rec.assigned, rec.notes, rec.docs||''],
+    'ClientSummary'
+  );
 }
 
 // ── QUOTE MODAL ──
