@@ -1210,13 +1210,14 @@ async function appendToSheet(sheetName, row){
   if(!window.gapi||!gapi.client) throw new Error('OAuth not initialized.');
   const token = gapi.client.getToken ? gapi.client.getToken() : null;
   if(!token||!token.access_token) throw new Error('NO_TOKEN');
-  await gapi.client.sheets.spreadsheets.values.append({
+  const resp = await gapi.client.sheets.spreadsheets.values.append({
     spreadsheetId: CFG.sheetId,
     range: `${sheetName}!A1`,
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     resource: { values: [row] }
   });
+  return resp;
 }
 
 async function updateSheetRow(sheetName, rowIndex, row){
@@ -2455,8 +2456,20 @@ async function writeBack(sheet, rec, rowFn, idx, collection, isNew){
     }
     try {
       const row=rowFn(rec);
-      if(isNew){ await appendToSheet(sheet,row); }
-      else { const rowNum=(rec._row||(idx+2)); await updateSheetRow(sheet,rowNum,row); }
+      if(isNew){
+        const resp = await appendToSheet(sheet,row);
+        // Capture the actual row number so future edits hit the right row
+        if(resp && resp.result && resp.result.updates && resp.result.updates.updatedRange){
+          const match = resp.result.updates.updatedRange.match(/A(\d+)/);
+          if(match){
+            const newRow = parseInt(match[1]);
+            rec._row = newRow;
+            const recIdx = collection.indexOf(rec);
+            if(recIdx !== -1){ collection[recIdx]._row = newRow; }
+            saveLocalData();
+          }
+        }
+      } else { const rowNum=(rec._row||(idx+2)); await updateSheetRow(sheet,rowNum,row); }
       setSyncStatus('live');
       toast('Saved to Google Sheets ✓','success');
     } catch(e){
