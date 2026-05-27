@@ -1004,7 +1004,6 @@ th.col-filter-active{background:rgba(26,79,168,0.08) !important;color:var(--acce
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group"><div class="form-label">Activity date *</div><input class="form-input" id="cf-date" type="date"></div>
-        <div class="form-group"><div class="form-label">Activity time <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--text3)">(optional)</span></div><input class="form-input" id="cf-time" type="time"></div>
         <div class="form-group">
           <div class="form-label">Client ID</div>
           <select class="form-select" id="cf-clientid" onchange="coaClientIdChanged()">
@@ -1016,23 +1015,18 @@ th.col-filter-active{background:rgba(26,79,168,0.08) !important;color:var(--acce
           <input class="form-input" id="cf-client" placeholder="Auto-filled when Client ID is selected" readonly style="background:var(--surface2);color:var(--text2)">
         </div>
         <div class="form-group"><div class="form-label">Contact type</div>
-          <select class="form-select" id="cf-type"><option value="">Select...</option></select>
+          <select class="form-select" id="cf-type"><option value="">Select...</option><option>Call/Text</option><option>Email</option><option>Visit/Meeting</option><option>Presentation</option></select>
         </div>
         <div class="form-group"><div class="form-label">Assigned</div>
-          <div id="cf-assigned" style="border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;background:var(--surface)"></div>
+          <div id="cf-assigned" style="border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;background:var(--surface)">
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="JMEG" style="width:14px;height:14px"> JMEG</label>
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="JJDD" style="width:14px;height:14px"> JJDD</label>
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="JRBP" style="width:14px;height:14px"> JRBP</label>
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="RC" style="width:14px;height:14px"> RC</label>
+          </div>
         </div>
         <div class="form-group full"><div class="form-label">Task *</div><textarea class="form-textarea" id="cf-task"></textarea></div>
         <div class="form-group"><div class="form-label">Date completed</div><input class="form-input" id="cf-completed" type="date"></div>
-        <!-- Google Calendar -->
-        <div class="form-group full" id="coam-calendar-row" style="display:none">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 12px;background:var(--blue-bg);border-radius:var(--radius-sm);border:1px solid var(--border)">
-            <input type="checkbox" id="cf-add-calendar" style="width:15px;height:15px;flex-shrink:0">
-            <div>
-              <div style="font-size:13px;font-weight:500;color:var(--blue)">📅 Add to Google Calendar</div>
-              <div style="font-size:11px;color:var(--text2);margin-top:2px">Creates an event on assigned team members' calendars with 1-day and 30-min reminders. Requires write access.</div>
-            </div>
-          </label>
-        </div>
       </div>
     </div>
     <div class="modal-foot" style="justify-content:space-between">
@@ -1136,19 +1130,6 @@ th.col-filter-active{background:rgba(26,79,168,0.08) !important;color:var(--acce
 </div>
 
 <script>
-// ── GLOBAL ERROR TRAP (temporary — remove after debugging) ──
-window.onerror = function(msg, src, line, col, err){
-  const banner = document.getElementById('js-error-banner') || (() => {
-    const d = document.createElement('div');
-    d.id = 'js-error-banner';
-    d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;padding:12px 16px;z-index:99999;font-size:12px;font-family:monospace;white-space:pre-wrap;word-break:break-all';
-    document.body.appendChild(d);
-    return d;
-  })();
-  banner.textContent = '⚠ JS Error (line '+line+'): '+msg+'\n'+src;
-  return false;
-};
-
 // ── CONFIG ──
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const _exportData = { clients: [], quotations: [], coa: [], renewals: [] };
@@ -1164,7 +1145,6 @@ let CONFIG_INS_TYPES    = ['HMO','Life','Non-Life'];
 let CONFIG_CONTACT_TYPES= ['Call/Text','Email','Visit/Meeting','Presentation'];
 let CONFIG_ASSIGNED     = ['JMEG','JJDD','JRBP','RC'];
 let CONFIG_PROVIDERS    = ['Maxicare','iCare','Intellicare','Philcare','Medicard','ValuCare','Kaizer','OONA','PhilBritish','Pioneer','Bethel','AlliedBankers'];
-let CONFIG_TEAM_EMAILS  = {}; // e.g. { JMEG: 'email@...', JJDD: 'email@...' } — from Config sheet TeamEmail rows
 
 // ── CLIENT TABLE SORT & COLUMN FILTER STATE ──
 let _clientSort = {col:null, dir:'asc'};
@@ -1448,7 +1428,7 @@ function maybeInitTokenClient(){
   try {
     _tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CFG.clientId,
-      scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/calendar.events',
+      scope: 'https://www.googleapis.com/auth/spreadsheets',
       callback: (resp)=>{
         if(resp.error){
           toast('OAuth error: ' + resp.error + (resp.error_description ? ' — '+resp.error_description : ''), 'error');
@@ -1566,15 +1546,6 @@ function parseConfig(rows){
   if(g['ContactType']?.length) CONFIG_CONTACT_TYPES = g['ContactType'];
   if(g['Assigned']?.length)    CONFIG_ASSIGNED      = g['Assigned'];
   if(g['Provider']?.length)    CONFIG_PROVIDERS     = g['Provider'];
-  // TeamEmail format: "JMEG=josephdemaala@gmail.com"
-  if(g['TeamEmail']?.length){
-    CONFIG_TEAM_EMAILS={};
-    g['TeamEmail'].forEach(v=>{
-      const eq=v.indexOf('=');
-      if(eq>0){ const init=v.slice(0,eq).trim().toUpperCase(), email=v.slice(eq+1).trim();
-        if(init&&email) CONFIG_TEAM_EMAILS[init]=email; }
-    });
-  }
 }
 
 function parseClients(rows){
@@ -1617,7 +1588,7 @@ function parseQuotes(rows){
 function parseCOA(rows){
   if(rows.length<2)return[];
   const h=rows[0];
-  return rows.slice(1).filter(r=>r[0]&&r[4]).map(r=>{const o=r2o(h,r);return{date:fdi(o['Activity Date']),time:o['Activity Time']||'',clientId:o['Client ID'],client:o['Client Name'],contactType:o['Contact Type'],task:o['Task'],assigned:o['Assigned'],completed:fdi(o['Date Completed']),_row:rows.indexOf(r)+1};});
+  return rows.slice(1).filter(r=>r[0]&&r[4]).map(r=>{const o=r2o(h,r);return{date:fdi(o['Activity Date']),clientId:o['Client ID'],client:o['Client Name'],contactType:o['Contact Type'],task:o['Task'],assigned:o['Assigned'],completed:fdi(o['Date Completed']),_row:rows.indexOf(r)+1};});
 }
 function parseClientHistory(rows){
   if(rows.length<2)return[];
@@ -2290,17 +2261,14 @@ function renderCOA(){
       ?`<button class="btn btn-complete" title="Mark complete" onclick="completeCOATask(${idx})" style="font-size:13px;height:28px;width:28px;padding:0;background:var(--green-bg);color:var(--green);border-color:transparent;border-radius:50%;font-weight:700">✓</button>`
       :`<span style="color:var(--green);font-weight:500;font-size:12px">${fmt(c.completed)}</span>`;
     return`<tr>
-      <td style="white-space:nowrap">${fmt(c.date)}${c.time?`<br><span class="td-mono" style="font-size:10px;color:var(--accent2)">${fmtTime(c.time)}</span>`:''}</td>
+      <td style="white-space:nowrap">${fmt(c.date)}</td>
       <td class="td-mono" style="white-space:nowrap">${c.clientId||'—'}</td>
       <td title="${c.client||''}">${c.client||'<span class="unassigned">non-client</span>'}</td>
       <td>${c.contactType?`<span class="badge badge-gray">${c.contactType}</span>`:'—'}</td>
       <td style="white-space:normal;font-size:13px;min-width:200px">${isPending?`<span class="dash-clickable" onclick="openCOADrawer(${idx})" title="Open detail &amp; complete">${c.task}</span>`:c.task}</td>
       <td style="white-space:nowrap">${c.assigned||'—'}</td>
       <td style="white-space:nowrap">${completeBtn}</td>
-      <td style="white-space:nowrap;display:flex;gap:4px">
-        <button class="btn" style="font-size:11px;height:26px;padding:0 8px" onclick="openCOAModal(${idx})">Edit</button>
-        ${isPending?`<button class="btn" title="Add to Google Calendar" onclick="addTaskToCalendar(${idx})" style="font-size:11px;height:26px;padding:0 7px">📅</button>`:''}
-      </td>
+      <td style="white-space:nowrap"><button class="btn" style="font-size:11px;height:26px;padding:0 8px" onclick="openCOAModal(${idx})">Edit</button></td>
     </tr>`;
   }).join(''):noData(8);
 }
@@ -2689,8 +2657,7 @@ function clientToRow(c){
   ];
 }
 function quoteToRow(q){return[q.id,q.clientId,q.client,q.provider,q.franchiseDate,q.franchiseEnd,q.initialEmail,q.tat,q.status,q.dateReleased,q.rates,q.torSob,q.requests,q.threadId,q.followUp];}
-// COA sheet columns: Activity Date, Client ID, Client Name, Contact Type, Task, Assigned, Date Completed, Activity Time
-function coaToRow(c){return[c.date,c.clientId,c.client,c.contactType,c.task,c.assigned,c.completed,c.time||''];}
+function coaToRow(c){return[c.date,c.clientId,c.client,c.contactType,c.task,c.assigned,c.completed];}
 function providerToRow(p){return[p.provider,p.email,p.honorifics,p.contact,p.cc];}
 
 // ── WRITE QUEUE (Fix 3: debounce + queue) ──
@@ -3093,87 +3060,6 @@ async function saveQuotation(){
   renderQuotations(); renderDashboard();
 }
 
-// ── TIME HELPER ──
-function fmtTime(t){
-  if(!t)return'';
-  const [h,m]=t.split(':').map(Number);
-  const ampm=h>=12?'PM':'AM';
-  const h12=h%12||12;
-  return`${h12}:${String(m||0).padStart(2,'0')} ${ampm}`;
-}
-
-// ── GOOGLE CALENDAR EVENT CREATION ──
-async function createCalendarEvent(task){
-  // Ensure we have a valid OAuth token with calendar scope
-  const token=(window.gapi&&gapi.client&&gapi.client.getToken)?gapi.client.getToken():null;
-  if(!token||!token.access_token){
-    // Request access first, then retry
-    toast('Requesting calendar access...','saving');
-    return new Promise(resolve=>{
-      requestWriteAccess(async ()=>{ const r=await createCalendarEvent(task); resolve(r); });
-    });
-  }
-
-  const startTime=task.time||'09:00';
-  const [sh,sm]=startTime.split(':').map(Number);
-  const endH=String(Math.min(sh+1,23)).padStart(2,'0');
-  const endTime=`${endH}:${String(sm||0).padStart(2,'0')}`;
-
-  // Resolve attendees from CONFIG_TEAM_EMAILS
-  const assignedList=(task.assigned||'').split(',').map(a=>a.trim()).filter(Boolean);
-  const attendees=assignedList
-    .filter(a=>CONFIG_TEAM_EMAILS[a.toUpperCase()])
-    .map(a=>({email:CONFIG_TEAM_EMAILS[a.toUpperCase()]}));
-
-  const event={
-    summary:`[COA] ${task.task}${task.client?' — '+task.client:''}`,
-    description:`📋 COA Task — Strata CRM\n\nClient: ${task.client||'Non-client task'}\nClient ID: ${task.clientId||'—'}\nContact Type: ${task.contactType||'—'}\nAssigned: ${task.assigned||'—'}`,
-    start:{dateTime:`${task.date}T${startTime}:00`,timeZone:'Asia/Manila'},
-    end:{dateTime:`${task.date}T${endTime}:00`,timeZone:'Asia/Manila'},
-    reminders:{useDefault:false,overrides:[
-      {method:'popup',minutes:1440},  // 1 day before
-      {method:'popup',minutes:30}     // 30 min before
-    ]}
-  };
-  if(attendees.length) event.attendees=attendees;
-
-  try{
-    const res=await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events',{
-      method:'POST',
-      headers:{'Authorization':`Bearer ${token.access_token}`,'Content-Type':'application/json'},
-      body:JSON.stringify(event)
-    });
-    if(!res.ok){
-      const err=await res.json();
-      // Scope error — user needs to re-authorize with calendar permission
-      if(res.status===403){
-        toast('Calendar permission not granted. Click "Grant write access" and re-authorize.','error');
-        gapi.client.setToken(null); // clear token so next auth request asks for full scope
-        return false;
-      }
-      throw new Error(err.error?.message||res.statusText);
-    }
-    const data=await res.json();
-    // Notify unresolved assignees (no email mapping yet)
-    const noEmail=assignedList.filter(a=>!CONFIG_TEAM_EMAILS[a.toUpperCase()]);
-    if(noEmail.length) toast(`ℹ No email mapped for: ${noEmail.join(', ')}. Add TeamEmail to Config sheet.`,'');
-    return data.htmlLink||true;
-  }catch(e){
-    toast('Calendar error: '+e.message,'error');
-    return false;
-  }
-}
-
-// ── ADD TO CALENDAR BUTTON (from COA table/drawer for existing tasks) ──
-async function addTaskToCalendar(idx){
-  const task=COA_DATA[idx];
-  if(!task){return;}
-  if(!task.date){toast('Task has no date — cannot create calendar event.','error');return;}
-  toast('Creating calendar event...','saving');
-  const link=await createCalendarEvent(task);
-  if(link) toast('📅 Calendar event created ✓','success');
-}
-
 // ── COA MODAL ──
 function openCOAModal(idx){
   editCOAIdx=idx;
@@ -3197,21 +3083,8 @@ function openCOAModal(idx){
   const matched=CLIENTS.find(cl=>cl.id===sel.value);
   document.getElementById('cf-client').value=matched?matched.name:(c.client||'');
 
-  // Rebuild config-driven dropdowns
-  const ctSel=document.getElementById('cf-type');
-  if(ctSel) ctSel.innerHTML=`<option value="">Select...</option>`+CONFIG_CONTACT_TYPES.map(v=>`<option value="${v}">${v}</option>`).join('');
-  buildCheckboxList('cf-assigned', CONFIG_ASSIGNED);
   set('cf-date',c.date);
-  set('cf-time',c.time||'');
-  set('cf-type',c.contactType);
-  setChecked('cf-assigned',c.assigned);
-  set('cf-task',c.task);
-  set('cf-completed',c.completed);
-  // Show calendar checkbox only for new tasks with a date
-  const calRow=document.getElementById('coam-calendar-row');
-  if(calRow) calRow.style.display=idx===null?'block':'none';
-  const calCb=document.getElementById('cf-add-calendar');
-  if(calCb) calCb.checked=false;
+  set('cf-type',c.contactType);setChecked('cf-assigned',c.assigned);set('cf-task',c.task);set('cf-completed',c.completed);
   document.getElementById('coam-saving').textContent='';
   document.getElementById('coam-delete-btn').style.display = idx !== null ? 'inline-flex' : 'none';
   openModal('coa-modal');
@@ -3234,10 +3107,9 @@ async function saveCOA(){
   const clientId=document.getElementById('cf-clientid').value;
   const matchedClient=CLIENTS.find(c=>c.id===clientId);
   const clientName=matchedClient?matchedClient.name:document.getElementById('cf-client').value;
-  const addToCalendar = isNew && document.getElementById('cf-add-calendar')?.checked;
   const rec={
-    date, time:document.getElementById('cf-time').value||'',
-    clientId, client:clientName,
+    date, clientId,
+    client:clientName,
     contactType:document.getElementById('cf-type').value,
     task, assigned:getChecked('cf-assigned'),
     completed:document.getElementById('cf-completed').value,
@@ -3249,12 +3121,6 @@ async function saveCOA(){
   btn.disabled=false;
   closeModal('coa-modal');
   renderCOA(); renderDashboard();
-  // Google Calendar — runs after modal closes so it doesn't block UX
-  if(addToCalendar && rec.date){
-    document.getElementById('coam-saving').textContent='';
-    const link = await createCalendarEvent(rec);
-    if(link) toast('📅 Calendar event created ✓', 'success');
-  }
 }
 
 // ── PROVIDER MODAL ──
@@ -3530,7 +3396,7 @@ function openCOADrawer(idx){
         <div class="qp-field-val">${clientIdx>-1?`<span class="dash-clickable" onclick="closeDrawer();setTimeout(()=>openClientDrawer(${clientIdx}),250)">${task.client}</span>`:task.client||'<span style="color:var(--text3);font-style:italic">Non-client task</span>'}${task.clientId?` <span style="font-size:11px;color:var(--text3);font-family:\'DM Mono\',monospace">${task.clientId}</span>`:''}</div>
       </div>
       <div class="qp-field"><div class="qp-field-label">Assigned to</div><div class="qp-field-val">${task.assigned||'—'}</div></div>
-      <div class="qp-field"><div class="qp-field-label">Activity date &amp; time</div><div class="qp-field-val">${task.date?fmt(new Date(task.date)):'—'}${task.time?` · <span style="color:var(--accent2);font-weight:500">${fmtTime(task.time)}</span>':''}</div></div>
+      <div class="qp-field"><div class="qp-field-label">Activity date</div><div class="qp-field-val">${task.date?fmt(new Date(task.date)):'—'}</div></div>
       <div class="qp-field"><div class="qp-field-label">Contact type</div><div class="qp-field-val">${typeBadge(task.contactType)}</div></div>
       <div class="qp-divider"></div>
       <div class="qp-notes" style="color:var(--text3);font-style:italic">Not yet completed — go to the Complete tab to finish this task.</div>
