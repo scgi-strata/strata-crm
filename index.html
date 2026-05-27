@@ -1136,6 +1136,19 @@ th.col-filter-active{background:rgba(26,79,168,0.08) !important;color:var(--acce
 </div>
 
 <script>
+// ── GLOBAL ERROR TRAP (temporary — remove after debugging) ──
+window.onerror = function(msg, src, line, col, err){
+  const banner = document.getElementById('js-error-banner') || (() => {
+    const d = document.createElement('div');
+    d.id = 'js-error-banner';
+    d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;padding:12px 16px;z-index:99999;font-size:12px;font-family:monospace;white-space:pre-wrap;word-break:break-all';
+    document.body.appendChild(d);
+    return d;
+  })();
+  banner.textContent = '⚠ JS Error (line '+line+'): '+msg+'\n'+src;
+  return false;
+};
+
 // ── CONFIG ──
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const _exportData = { clients: [], quotations: [], coa: [], renewals: [] };
@@ -3240,7 +3253,7 @@ async function saveCOA(){
   if(addToCalendar && rec.date){
     document.getElementById('coam-saving').textContent='';
     const link = await createCalendarEvent(rec);
-    if(link) toast(`📅 Calendar event created${typeof link==='string'?' — <a href="${link}" target="_blank" style="color:#fff;text-decoration:underline">Open ↗</a>':''}`, 'success');
+    if(link) toast('📅 Calendar event created ✓', 'success');
   }
 }
 
