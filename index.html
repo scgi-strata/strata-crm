@@ -2823,6 +2823,50 @@ function getContactsFromTable(){
   }).filter(r=>r.name||r.email||r.mobile);
 }
 
+// ── HISTORY CHANGE NOTE BUILDER ──
+// Tracks every field from Address to Client Documentation.
+// Produces a human-readable audit entry showing exactly what changed.
+function buildHistoryChangeNote(oldRec, rec, isNew){
+  if(isNew){
+    const parts=['[New client added]'];
+    if(rec.notes) parts.push(rec.notes);
+    return parts.join('\n');
+  }
+
+  const labels=[];
+  const chk=(label, oldVal, newVal)=>{
+    const o=(oldVal||'').trim(), n=(newVal||'').trim();
+    if(o!==n) labels.push(`[${label}: ${o||'—'} → ${n||'—'}]`);
+  };
+
+  // All fields — Address through Client Documentation
+  chk('Address',          oldRec.address,         rec.address);
+  chk('Contact Person',   oldRec.contact,          rec.contact);
+  chk('Mobile No.',       oldRec.mobile,           rec.mobile);
+  chk('Email',            oldRec.email,            rec.email);
+  chk('Industry',         oldRec.industry,         rec.industry);
+  chk('Business Type',    oldRec.bizType,          rec.bizType);
+  chk('Insurance Type',   oldRec.insType,          rec.insType);
+  chk('Current Provider', oldRec.currentProvider,  rec.currentProvider);
+  chk('Renewal Date',     oldRec.renewal,          rec.renewal);
+  chk('Target Provider',  oldRec.provider,         rec.provider);
+  chk('Status',           oldRec.status,           rec.status);
+  chk('Contact Type',     oldRec.contactType,      rec.contactType);
+  chk('Last Contact',     oldRec.lastContact,      rec.lastContact);
+  chk('Next Follow-up',   oldRec.nextFollowUp,     rec.nextFollowUp);
+  chk('Assigned',         oldRec.assigned,         rec.assigned);
+  chk('Documentation',    oldRec.docs,             rec.docs);
+
+  // Notes: show new text if changed, or flag if cleared
+  const notesChanged=(oldRec.notes||'').trim()!==(rec.notes||'').trim();
+  const parts=[];
+  if(labels.length) parts.push(labels.join('\n'));
+  if(notesChanged && rec.notes)           parts.push(rec.notes);
+  if(notesChanged && !rec.notes)          parts.push('[Notes cleared]');
+
+  return parts.join('\n')||'[Updated]';
+}
+
 // ── CLIENT MODAL ──
 function openClientModal(idx){
   editClientIdx=idx;
@@ -2867,6 +2911,8 @@ async function saveClient(){
   const btn=document.getElementById('cm-save-btn');
   btn.disabled=true; document.getElementById('cm-saving').textContent='Saving...';
   const isNew=myIdx===null;
+  // Snapshot full old record BEFORE overwriting — used for change detection
+  const oldRec = !isNew ? {...CLIENTS[myIdx]} : null;
   // #8 — live-fetch current max ID to prevent duplicates across concurrent users
   let newId = isNew ? await fetchNextClientID() : CLIENTS[myIdx].id;
   const contacts = getContactsFromTable();
@@ -2892,29 +2938,57 @@ async function saveClient(){
     _row:isNew?null:CLIENTS[myIdx]._row,
   };
   if(isNew){CLIENTS.push(rec);}else{CLIENTS[myIdx]=rec;}
-  // Update local CLIENT_HISTORY synchronously
-  CLIENT_HISTORY.unshift({
-    timestamp:new Date().toLocaleString('en-PH'),
-    clientId:rec.id, client:rec.name, contact:rec.contact,
-    status:rec.status, contactType:rec.contactType,
-    lastContact:rec.lastContact, nextFollowUp:rec.nextFollowUp,
-    assigned:rec.assigned, notes:rec.notes, editedBy:AUTH.name||''
-  });
+
+  // ── History: log when ANY field from Address to Client Documentation changed ──
+  const meaningfulChange = isNew || !oldRec || [
+    [oldRec.address,         rec.address],
+    [oldRec.contact,         rec.contact],
+    [oldRec.mobile,          rec.mobile],
+    [oldRec.email,           rec.email],
+    [oldRec.industry,        rec.industry],
+    [oldRec.bizType,         rec.bizType],
+    [oldRec.insType,         rec.insType],
+    [oldRec.currentProvider, rec.currentProvider],
+    [oldRec.renewal,         rec.renewal],
+    [oldRec.provider,        rec.provider],
+    [oldRec.status,          rec.status],
+    [oldRec.contactType,     rec.contactType],
+    [oldRec.lastContact,     rec.lastContact],
+    [oldRec.nextFollowUp,    rec.nextFollowUp],
+    [oldRec.assigned,        rec.assigned],
+    [oldRec.notes,           rec.notes],
+    [oldRec.docs,            rec.docs],
+  ].some(([o,n])=>(o||'').trim()!==(n||'').trim());
+
+  const changeNote = meaningfulChange ? buildHistoryChangeNote(oldRec, rec, isNew) : '';
+
+  if(meaningfulChange){
+    CLIENT_HISTORY.unshift({
+      timestamp:new Date().toLocaleString('en-PH'),
+      clientId:rec.id, client:rec.name, contact:rec.contact,
+      status:rec.status, contactType:rec.contactType,
+      lastContact:rec.lastContact, nextFollowUp:rec.nextFollowUp,
+      assigned:rec.assigned, notes:changeNote, editedBy:AUTH.name||''
+    });
+  }
+
   saveLocalData();
-  // Re-enable button and close modal immediately — don't block on async Sheets operations
   btn.disabled=false;
   closeModal('client-modal');
   renderClients(); renderDashboard();
-  // Write to Sheets in background (non-blocking)
+  // Always save to sheet
   writeBack(CFG.clientsSheet,rec,clientToRow,myIdx,CLIENTS,isNew);
-  appendHistoryWithRetry(
-    CFG.clientSummarySheet||'ClientSummary',
-    [new Date().toLocaleString('en-PH'), rec.id, rec.name, rec.address||'', rec.contact, rec.mobile,
-     rec.email, rec.industry||'', rec.bizType, rec.insType, rec.currentProvider, rec.renewal,
-     rec.provider, rec.status, rec.contactType, rec.lastContact, rec.nextFollowUp,
-     rec.assigned, rec.notes, rec.docs||'', AUTH.name||''],
-    'ClientSummary'
-  );
+  // History only on meaningful change
+  if(meaningfulChange){
+    appendHistoryWithRetry(
+      CFG.clientSummarySheet||'ClientSummary',
+      [new Date().toLocaleString('en-PH'), rec.id, rec.name, rec.address||'', rec.contact, rec.mobile,
+       rec.email, rec.industry||'', rec.bizType, rec.insType, rec.currentProvider, rec.renewal,
+       rec.provider, rec.status, rec.contactType, rec.lastContact, rec.nextFollowUp,
+       rec.assigned, changeNote, rec.docs||'', AUTH.name||''],
+      'ClientSummary'
+    );
+  }
 }
 
 // ── CSV IMPORT ──
