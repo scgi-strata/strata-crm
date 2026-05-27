@@ -970,7 +970,7 @@ th.col-filter-active{background:rgba(26,79,168,0.08) !important;color:var(--acce
         <div class="form-group"><div class="form-label">Client ID</div><input class="form-input" id="qf-clientid" placeholder="C-0001"></div>
         <div class="form-group"><div class="form-label">Client name *</div><input class="form-input" id="qf-client"></div>
         <div class="form-group"><div class="form-label">Provider</div>
-          <select class="form-select" id="qf-provider"><option value="">Select...</option><option>Maxicare</option><option>iCare</option><option>Intellicare</option><option>Philcare</option><option>Medicard</option><option>ValuCare</option></select>
+          <select class="form-select" id="qf-provider"><option value="">Select...</option></select>
         </div>
         <div class="form-group"><div class="form-label">Rates</div>
           <select class="form-select" id="qf-rates"><option value="">Select...</option><option>SME</option><option>Corporate</option></select>
@@ -1015,15 +1015,10 @@ th.col-filter-active{background:rgba(26,79,168,0.08) !important;color:var(--acce
           <input class="form-input" id="cf-client" placeholder="Auto-filled when Client ID is selected" readonly style="background:var(--surface2);color:var(--text2)">
         </div>
         <div class="form-group"><div class="form-label">Contact type</div>
-          <select class="form-select" id="cf-type"><option value="">Select...</option><option>Call/Text</option><option>Email</option><option>Visit/Meeting</option><option>Presentation</option></select>
+          <select class="form-select" id="cf-type"><option value="">Select...</option></select>
         </div>
         <div class="form-group"><div class="form-label">Assigned</div>
-          <div id="cf-assigned" style="border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;background:var(--surface)">
-            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="JMEG" style="width:14px;height:14px"> JMEG</label>
-            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="JJDD" style="width:14px;height:14px"> JJDD</label>
-            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="JRBP" style="width:14px;height:14px"> JRBP</label>
-            <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer"><input type="checkbox" value="RC" style="width:14px;height:14px"> RC</label>
-          </div>
+          <div id="cf-assigned" style="border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;background:var(--surface)"></div>
         </div>
         <div class="form-group full"><div class="form-label">Task *</div><textarea class="form-textarea" id="cf-task"></textarea></div>
         <div class="form-group"><div class="form-label">Date completed</div><input class="form-input" id="cf-completed" type="date"></div>
@@ -3086,6 +3081,9 @@ function openQuoteModal(idx){
   document.getElementById('qm-title').textContent=idx===null?'Add quotation':'Edit quotation';
   const q=idx!==null?QUOTATIONS[idx]:{};
   const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.value=val||''; };
+  // Rebuild config-driven provider dropdown
+  const provSel=document.getElementById('qf-provider');
+  if(provSel) provSel.innerHTML=`<option value="">Select...</option>`+CONFIG_PROVIDERS.map(v=>`<option value="${v}">${v}</option>`).join('');
   set('qf-clientid',q.clientId);set('qf-client',q.client);set('qf-provider',q.provider);
   set('qf-rates',q.rates);set('qf-fdate',q.franchiseDate);set('qf-fend',q.franchiseEnd);
   set('qf-email',q.initialEmail);set('qf-released',q.dateReleased);
@@ -3157,8 +3155,16 @@ function openCOAModal(idx){
   const matched=CLIENTS.find(cl=>cl.id===sel.value);
   document.getElementById('cf-client').value=matched?matched.name:(c.client||'');
 
+  // Rebuild config-driven dropdowns
+  const ctSel=document.getElementById('cf-type');
+  if(ctSel) ctSel.innerHTML=`<option value="">Select...</option>`+CONFIG_CONTACT_TYPES.map(v=>`<option value="${v}">${v}</option>`).join('');
+  buildCheckboxList('cf-assigned', CONFIG_ASSIGNED);
+
   set('cf-date',c.date);
-  set('cf-type',c.contactType);setChecked('cf-assigned',c.assigned);set('cf-task',c.task);set('cf-completed',c.completed);
+  set('cf-type',c.contactType);
+  setChecked('cf-assigned',c.assigned);
+  set('cf-task',c.task);
+  set('cf-completed',c.completed);
   document.getElementById('coam-saving').textContent='';
   document.getElementById('coam-delete-btn').style.display = idx !== null ? 'inline-flex' : 'none';
   openModal('coa-modal');
