@@ -1,0 +1,3724 @@
+/***********************
+  CONFIG
+************************/
+const SOURCE_CLIENT_SHEET_NAME = "Client";
+const SOURCE_QUOTATIONS_SHEET_NAME = "Quotations";
+const TARGET_CLIENT_SHEET_NAME = "ClientSummary";
+const TARGET_QUOTATIONS_SHEET_NAME = "QuotationsSummary";
+const TARGET_CLOSED_SHEET_NAME = "Closed";
+const COA_SHEET_NAME = "COA";
+
+const PENDING_QUOTE_SHEET_NAME = "_PendingQuotationForm";
+const PENDING_COA_SHEET_NAME = "_PendingCOAForm";
+
+/***********************
+  MENU
+************************/
+function testAuth() {
+  SpreadsheetApp.getActiveSpreadsheet();
+}
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("Strata CRM")
+    .addItem("Client Entry Form", "openClientEntryForm")
+    .addItem("COA Task Center", "openUnifiedCOAForm")
+    .addItem("Open Quotation Form (Pending)", "openPendingQuotationForm")
+    .addSeparator()
+    .addItem("Generate Draft Email", "generateDraftEmail")
+    .addItem("Scan Quotation Follow-Ups", "scanQuotationFollowUpsToCOA")
+    .addSeparator()
+    .addItem("Cleanup Pending COA Duplicates", "cleanupPendingCOADuplicates_")
+    .addToUi();
+
+  ensurePendingCOASheet_();
+  syncCOAContactTypeValidation_();
+}
+
+/***********************
+  SIMPLE EDIT WRAPPER
+************************/
+function onEdit(e) {
+  installedOnEdit(e);
+}
+
+/***********************
+  CLIENT ENTRY FORM
+************************/
+function openClientEntryForm() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, SOURCE_CLIENT_SHEET_NAME);
+  const range = sheet.getActiveRange();
+
+  if (!range) {
+    SpreadsheetApp.getUi().alert("Please select a row in the Client sheet first.");
+    return;
+  }
+
+  const row = range.getRow();
+  if (row === 1) {
+    SpreadsheetApp.getUi().alert("Please select a client row below the header.");
+    return;
+  }
+
+  const headers = getHeaderMap(sheet, 1);
+  const colClientName = headers["Client Name"];
+
+  if (!colClientName) {
+    SpreadsheetApp.getUi().alert("Missing 'Client Name' header in Client sheet.");
+    return;
+  }
+
+  const clientName = sheet.getRange(row, colClientName).getValue();
+  if (!clientName) {
+    SpreadsheetApp.getUi().alert("Please enter Client Name first before opening the form.");
+    return;
+  }
+
+  const data = getFormDataForRow(row);
+  const html = HtmlService.createTemplateFromFile("ClientForm");
+  html.data = data;
+
+  SpreadsheetApp.getUi().showModalDialog(
+    html.evaluate().setWidth(560).setHeight(760),
+    "Complete Client Entry"
+  );
+}
+
+function getFormDataForRow(row) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, SOURCE_CLIENT_SHEET_NAME);
+  const headers = getHeaderMap(sheet, 1);
+
+  const businessTypeOptions = getValidationOptions(sheet, headers["Business Type"], 2);
+  const insuranceOptions = getValidationOptions(sheet, headers["Type of Insurance"], 2);
+  const currentProviderHeader = getExistingHeaderName_(headers, ["Current Provider", "Provider"]);
+  const currentProviderOptions = getValidationOptions(sheet, headers[currentProviderHeader], 2);
+  const statusOptions = getValidationOptions(sheet, headers["Status"], 2);
+  const contactTypeOptions = getValidationOptions(sheet, headers["Contact Type"], 2);
+
+  return {
+    row: row,
+    clientName: getCellValue_(sheet, row, headers["Client Name"]),
+    contactPerson: getCellValue_(sheet, row, headers["Contact Person"]),
+    mobileNo: getCellDisplayValue_(sheet, row, headers["Mobile No."]),
+    email: getCellValue_(sheet, row, headers["Email"]),
+    businessType: getCellValue_(sheet, row, headers["Business Type"]),
+    typeOfInsurance: getCellValue_(sheet, row, headers["Type of Insurance"]),
+    currentProvider: getCellValue_(sheet, row, headers[currentProviderHeader]),
+    renewalDate: formatDateForInput(sheet.getRange(row, headers["Renewal Date"]).getValue()),
+    status: getCellValue_(sheet, row, headers["Status"]),
+    contactType: getCellValue_(sheet, row, headers["Contact Type"]),
+    lastContactDate: formatDateForInput(sheet.getRange(row, headers["Last Contact Date"]).getValue()),
+    notes: getCellValue_(sheet, row, headers["Notes"]),
+    businessTypeOptions: businessTypeOptions,
+    insuranceOptions: insuranceOptions,
+    currentProviderOptions: currentProviderOptions,
+    statusOptions: statusOptions,
+    contactTypeOptions: contactTypeOptions
+  };
+}
+
+function saveClientEntry(formData) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, SOURCE_CLIENT_SHEET_NAME);
+  const headers = getHeaderMap(sheet, 1);
+  const row = Number(formData.row);
+
+  requireHeaders_(
+    headers,
+    [
+      "Client ID", "Client Name", "Contact Person", "Mobile No.", "Email",
+      "Business Type", "Type of Insurance", "Renewal Date",
+      "Status", "Contact Type", "Last Contact Date", "Next Follow-up Date",
+      "Assigned", "Notes"
+    ],
+    "Client sheet"
+  );
+
+  const providerHeader = getExistingHeaderName_(headers, ["Current Provider", "Provider"]);
+  if (!providerHeader) {
+    throw new Error("Missing header in Client sheet: Current Provider or Provider");
+  }
+
+  const colClientID = headers["Client ID"];
+  const colClientName = headers["Client Name"];
+  const colContactPerson = headers["Contact Person"];
+  const colMobileNo = headers["Mobile No."];
+  const colEmail = headers["Email"];
+  const colBusinessType = headers["Business Type"];
+  const colTypeOfInsurance = headers["Type of Insurance"];
+  const colProvider = headers[providerHeader];
+  const colRenewalDate = headers["Renewal Date"];
+  const colStatus = headers["Status"];
+  const colContactType = headers["Contact Type"];
+  const colLastContact = headers["Last Contact Date"];
+  const colNextFollowUp = headers["Next Follow-up Date"];
+  const colAssigned = headers["Assigned"];
+  const colNotes = headers["Notes"];
+
+  const clientName = String(sheet.getRange(row, colClientName).getValue() || "").trim();
+  if (!clientName) {
+    throw new Error("Client Name is required before saving the form.");
+  }
+
+  // Lock to prevent duplicate Client IDs when multiple users save simultaneously
+  const idLock = LockService.getDocumentLock();
+  idLock.waitLock(10000);
+  let clientID;
+  try {
+    clientID = ensureClientIDOnRow_(sheet, row, colClientID);
+  } finally {
+    idLock.releaseLock();
+  }
+
+  updateClientEntryFields_(sheet, row, {
+    colContactPerson: colContactPerson,
+    colMobileNo: colMobileNo,
+    colEmail: colEmail,
+    colBusinessType: colBusinessType,
+    colTypeOfInsurance: colTypeOfInsurance,
+    colProvider: colProvider,
+    colStatus: colStatus,
+    colContactType: colContactType,
+    colNotes: colNotes,
+    colRenewalDate: colRenewalDate,
+    formData: formData
+  });
+
+  const lastContactDate = updateClientLastContactAndFollowUp_(sheet, row, {
+    colLastContact: colLastContact,
+    colNextFollowUp: colNextFollowUp,
+    colStatus: colStatus,
+    formData: formData
+  });
+
+  const notes = String(sheet.getRange(row, colNotes).getValue() || "").trim();
+  const contactType = String(sheet.getRange(row, colContactType).getValue() || "").trim();
+
+  if (confirmAppendClientSummaryHistory_(clientName, contactType, notes, lastContactDate)) {
+    appendClientSummaryHistoryFromClientRow_(row);
+  } else {
+    SpreadsheetApp.getActive().toast(
+      "Latest update was not saved to ClientSummary.",
+      "Strata CRM",
+      4
+    );
+  }
+
+  const activityDate = sheet.getRange(row, colNextFollowUp).getValue();
+  const assigned = sheet.getRange(row, colAssigned).getValue();
+  const status = sheet.getRange(row, colStatus).getValue();
+
+  if (
+    clientID &&
+    activityDate instanceof Date &&
+    !isNaN(activityDate) &&
+    !isClosedStatus_(status)
+  ) {
+    queuePendingCOA_(activityDate, clientID, clientName, contactType, assigned);
+    SpreadsheetApp.getActive().toast(
+      "Next task ready. Select this client row, then go to Strata CRM > COA Task Center.",
+      "Strata CRM",
+      5
+    );
+  }
+
+  return "Client entry saved successfully.";
+}
+
+function updateClientEntryFields_(sheet, row, config) {
+  const formData = config.formData;
+
+  sheet.getRange(row, config.colContactPerson).setValue(formData.contactPerson || "");
+  sheet.getRange(row, config.colMobileNo).setNumberFormat("@");
+  sheet.getRange(row, config.colMobileNo).setValue(formData.mobileNo || "");
+  sheet.getRange(row, config.colEmail).setValue(formData.email || "");
+  sheet.getRange(row, config.colBusinessType).setValue(formData.businessType || "");
+  sheet.getRange(row, config.colTypeOfInsurance).setValue(formData.typeOfInsurance || "");
+  sheet.getRange(row, config.colProvider).setValue(formData.currentProvider || "");
+  sheet.getRange(row, config.colStatus).setValue(formData.status || "");
+  sheet.getRange(row, config.colContactType).setValue(formData.contactType || "");
+  sheet.getRange(row, config.colNotes).setValue(formData.notes || "");
+
+  if (formData.renewalDate) {
+    const renewalDate = new Date(formData.renewalDate);
+    sheet.getRange(row, config.colRenewalDate).setValue(renewalDate).setNumberFormat("mm/dd/yyyy");
+  } else {
+    sheet.getRange(row, config.colRenewalDate).clearContent();
+  }
+}
+
+function updateClientLastContactAndFollowUp_(sheet, row, config) {
+  const formData = config.formData;
+  let lastContactDate = null;
+
+  if (formData.lastContactDate) {
+    lastContactDate = new Date(formData.lastContactDate);
+    sheet.getRange(row, config.colLastContact).setValue(lastContactDate).setNumberFormat("mm/dd/yyyy");
+  } else {
+    sheet.getRange(row, config.colLastContact).clearContent();
+  }
+
+  return lastContactDate;
+}
+
+/***********************
+  INSTALLABLE EDIT TRIGGER
+************************/
+function installedOnEdit(e) {
+  try {
+    if (!e || !e.range) return;
+
+    const sheet = e.range.getSheet();
+    const sheetName = sheet.getName();
+    const row = e.range.getRow();
+    const col = e.range.getColumn();
+
+    if (row === 1) return;
+
+    if (sheetName === SOURCE_CLIENT_SHEET_NAME) {
+      handleClientSheetEdit_(e, sheet, row, col);
+    } else if (sheetName === SOURCE_QUOTATIONS_SHEET_NAME) {
+      handleQuotationSheetEdit_(sheet, row, col);
+    } else if (sheetName === COA_SHEET_NAME) {
+      handleCOASheetEdit_(e, sheet, row, col);
+    }
+
+  } catch (error) {
+    Logger.log("installedOnEdit error: " + error.message);
+    SpreadsheetApp.getActive().toast("Error: " + error.message, "Strata CRM", 5);
+  }
+}
+
+/***********************
+  CLIENT SHEET LOGIC
+************************/
+function handleClientSheetEdit_(e, sheet, row, col) {
+  const headers = getHeaderMap(sheet, 1);
+
+  const providerHeader = getExistingHeaderName_(headers, ["Provider", "Current Provider"]);
+
+  requireHeaders_(
+    headers,
+    ["Client ID", "Client Name", "Status", "Contact Type", "Last Contact Date", "Assigned", "Notes"],
+    "Client sheet"
+  );
+
+  if (!providerHeader) {
+    throw new Error("Missing required header in Client sheet: Provider or Current Provider");
+  }
+
+  const colClientID = headers["Client ID"];
+  const colClientName = headers["Client Name"];
+  const colProvider = headers[providerHeader];
+  const colStatus = headers["Status"];
+  const colContactType = headers["Contact Type"];
+  const colLastContact = headers["Last Contact Date"];
+  const colAssigned = headers["Assigned"];
+  const colNotes = headers["Notes"];
+
+  const clientNameCell = sheet.getRange(row, colClientName);
+  const clientIDCell = sheet.getRange(row, colClientID);
+  const providerCell = sheet.getRange(row, colProvider);
+  const statusCell = sheet.getRange(row, colStatus);
+  const contactTypeCell = sheet.getRange(row, colContactType);
+  const lastContactCell = sheet.getRange(row, colLastContact);
+  const notesCell = sheet.getRange(row, colNotes);
+
+  if (col === colClientName) {
+    const clientName = clientNameCell.getValue();
+    if (clientName && clientIDCell.isBlank()) {
+      clientIDCell.setValue(generateNextClientID(sheet, colClientID));
+    }
+  }
+
+  if (col === colStatus) {
+    handleClientStatusEdit_(e, sheet, row, statusCell, clientIDCell);
+    return;
+  }
+
+  if (col === colLastContact) {
+    handleClientLastContactEdit_(e, sheet, row, clientIDCell, contactTypeCell, lastContactCell, notesCell);
+    return;
+  }
+
+  if (col === colNotes) {
+    handleClientNotesEdit_(sheet, row, colClientName, colContactType, colNotes, colLastContact);
+    return;
+  }
+
+  if (col === colProvider) {
+    handleClientProviderEdit_(e, sheet, row, clientIDCell, providerCell, colClientName, colClientID);
+  }
+}
+
+function handleClientStatusEdit_(e, sheet, row, statusCell, clientIDCell) {
+  const newStatus = String(statusCell.getValue() || "").trim();
+  const oldStatus = String(e.oldValue || "").trim();
+
+  if (!newStatus) return;
+
+  if (isClosedStatus_(newStatus)) {
+    const confirmed = Browser.msgBox(
+      "Transfer to Closed?",
+      "Status is '" + newStatus + "'. Transfer this client to the Closed sheet and remove it from Client?",
+      Browser.Buttons.YES_NO
+    );
+
+    if (confirmed !== "yes") {
+      revertEditedCell_(e, statusCell);
+      return;
+    }
+
+    appendRowByMatchingHeaders_(sheet, row, TARGET_CLOSED_SHEET_NAME);
+    archiveAllPendingCOAForClient_(String(clientIDCell.getValue() || "").trim());
+    sheet.deleteRow(row);
+
+    SpreadsheetApp.getActive().toast(
+      "Client transferred to Closed.",
+      "Strata CRM",
+      5
+    );
+    return;
+  }
+
+  if (newStatus !== oldStatus) {
+    applyClientFollowUpLogic_(sheet, row, false);
+  }
+}
+
+function handleClientLastContactEdit_(e, sheet, row, clientIDCell, contactTypeCell, lastContactCell, notesCell) {
+  const clientID = String(clientIDCell.getValue() || "").trim();
+  const currentNotes = String(notesCell.getValue() || "").trim();
+  const currentContactType = String(contactTypeCell.getValue() || "").trim();
+
+  if (!clientID) {
+    SpreadsheetApp.getUi().alert("Client ID is required before changing Last Contact Date.");
+    revertEditedCell_(e, lastContactCell);
+    return;
+  }
+
+  if (currentNotes === "") {
+    SpreadsheetApp.getUi().alert("Please update the Notes first before changing Last Contact Date.");
+    revertEditedCell_(e, lastContactCell);
+    return;
+  }
+
+  if (currentContactType === "") {
+    SpreadsheetApp.getUi().alert("Please select Contact Type first before changing Last Contact Date.");
+    revertEditedCell_(e, lastContactCell);
+    return;
+  }
+
+  applyClientFollowUpLogic_(sheet, row, true);
+}
+
+function handleClientNotesEdit_(sheet, row, colClientName, colContactType, colNotes, colLastContact) {
+  const clientName = String(sheet.getRange(row, colClientName).getValue() || "").trim();
+  const contactType = String(sheet.getRange(row, colContactType).getValue() || "").trim();
+  const notes = String(sheet.getRange(row, colNotes).getValue() || "").trim();
+  const lastContactValue = sheet.getRange(row, colLastContact).getValue();
+
+  if (!notes) return;
+
+  const shouldSaveHistory = confirmAppendClientSummaryHistory_(
+    clientName,
+    contactType,
+    notes,
+    lastContactValue
+  );
+
+  if (shouldSaveHistory) {
+    appendClientSummaryHistoryFromClientRow_(row);
+    SpreadsheetApp.getActive().toast(
+      "Latest note update saved to ClientSummary.",
+      "Strata CRM",
+      4
+    );
+  } else {
+    SpreadsheetApp.getActive().toast(
+      "Latest note update was not saved to ClientSummary.",
+      "Strata CRM",
+      4
+    );
+  }
+}
+
+function handleClientProviderEdit_(e, sheet, row, clientIDCell, providerCell, colClientName, colClientID) {
+  const newValue = String(providerCell.getValue() || "").trim();
+  const oldValue = String(e.oldValue || "").trim();
+
+  if (!newValue) return;
+
+  const clientName = String(sheet.getRange(row, colClientName).getValue() || "").trim();
+  if (!clientName) {
+    SpreadsheetApp.getActive().toast("Please enter Client Name first.", "Strata CRM", 4);
+    providerCell.clearContent();
+    return;
+  }
+
+  if (clientIDCell.isBlank()) {
+    clientIDCell.setValue(generateNextClientID(sheet, colClientID));
+  }
+
+  const clientID = String(clientIDCell.getValue() || "").trim();
+  const addedProviders = getNewlyAddedProviders_(oldValue, newValue);
+
+  if (addedProviders.length === 0) return;
+
+  let coaCreated = 0;
+  let quotationCreated = 0;
+  let existingQueued = 0;
+
+  for (let i = 0; i < addedProviders.length; i++) {
+    const provider = normalizeProviderNameForDisplay_(addedProviders[i]);
+
+    const existingResponse = Browser.msgBox(
+      "Existing Quotation Check",
+      "Is there already an existing quotation record for " + clientName + " with " + provider + "?\n\n" +
+        "Choose Yes if there is already a pending or previously sent quotation request that should be recorded in the Quotations sheet.\n" +
+        "Choose No to create a new quotation request task.",
+      Browser.Buttons.YES_NO
+    );
+
+    if (existingResponse === "yes") {
+      queuePendingQuotation_(clientID, clientName, provider);
+      existingQueued++;
+      SpreadsheetApp.getActive().toast(
+        "Existing quotation pending form queued for " + clientName + " - " + provider + ". Go to Strata CRM > Open Quotation Form (Pending).",
+        "Strata CRM",
+        8
+      );
+      continue;
+    }
+
+    const requestMeta = promptQuotationRequestMeta_([provider]);
+    if (!requestMeta) {
+      SpreadsheetApp.getActive().toast(
+        "Quotation request task creation cancelled for " + provider + ".",
+        "Strata CRM",
+        4
+      );
+      continue;
+    }
+
+    const taskText = buildQuotationRequestTask_(provider);
+
+    if (createDirectCOATask_(
+      requestMeta.activityDate,
+      clientID,
+      clientName,
+      "Email",
+      taskText,
+      requestMeta.assigned
+    )) {
+      coaCreated++;
+    }
+
+    if (ensureQuotationRowForProvider_(clientID, clientName, provider, requestMeta)) {
+      quotationCreated++;
+    }
+  }
+
+  if (existingQueued > 0 && coaCreated === 0 && quotationCreated === 0) {
+    SpreadsheetApp.getActive().toast(
+      existingQueued + " existing quotation form request(s) queued. Go to Strata CRM > Open Quotation Form (Pending).",
+      "Strata CRM",
+      8
+    );
+    return;
+  }
+
+  SpreadsheetApp.getActive().toast(
+    coaCreated + " quotation request COA task(s) prepared. " +
+      quotationCreated + " quotation row(s) created." +
+      (existingQueued > 0 ? " " + existingQueued + " existing quotation form request(s) queued." : ""),
+    "Strata CRM",
+    8
+  );
+}
+
+function applyClientFollowUpLogic_(sheet, row, requireNotesCheck) {
+  const headers = getHeaderMap(sheet, 1);
+
+  requireHeaders_(
+    headers,
+    [
+      "Client ID", "Client Name", "Status", "Contact Type",
+      "Last Contact Date", "Next Follow-up Date", "Assigned", "Notes"
+    ],
+    "Client sheet"
+  );
+
+  const colClientID = headers["Client ID"];
+  const colClientName = headers["Client Name"];
+  const colStatus = headers["Status"];
+  const colContactType = headers["Contact Type"];
+  const colLastContact = headers["Last Contact Date"];
+  const colNextFollowUp = headers["Next Follow-up Date"];
+  const colAssigned = headers["Assigned"];
+  const colNotes = headers["Notes"];
+
+  const clientID = String(sheet.getRange(row, colClientID).getValue() || "").trim();
+  const clientName = String(sheet.getRange(row, colClientName).getValue() || "").trim();
+  const status = String(sheet.getRange(row, colStatus).getValue() || "").trim();
+  const contactType = String(sheet.getRange(row, colContactType).getValue() || "").trim();
+  const assigned = sheet.getRange(row, colAssigned).getValue();
+  const notes = String(sheet.getRange(row, colNotes).getValue() || "").trim();
+  const lastContactValue = sheet.getRange(row, colLastContact).getValue();
+  const nextFollowUpCell = sheet.getRange(row, colNextFollowUp);
+
+  if (!(lastContactValue instanceof Date) || isNaN(lastContactValue)) {
+    return;
+  }
+
+  if (requireNotesCheck && !notes) {
+    SpreadsheetApp.getUi().alert("Please update the Notes first before changing Last Contact Date.");
+    return;
+  }
+
+  if (!contactType) {
+    SpreadsheetApp.getUi().alert("Please select Contact Type first.");
+    return;
+  }
+
+  if (confirmAppendClientSummaryHistory_(clientName, contactType, notes, lastContactValue)) {
+    appendClientSummaryHistoryFromClientRow_(row);
+  } else {
+    SpreadsheetApp.getActive().toast(
+      "Latest update was not saved to ClientSummary.",
+      "Strata CRM",
+      4
+    );
+  }
+
+  const followUpDateValue = nextFollowUpCell.getValue();
+  const followUpDate = (followUpDateValue instanceof Date && !isNaN(followUpDateValue)) ? followUpDateValue : null;
+
+  if (!isClosedStatus_(status) && followUpDate) {
+    queuePendingCOA_(followUpDate, clientID, clientName, contactType, assigned);
+    SpreadsheetApp.getActive().toast(
+      "Pending COA updated for selected client.",
+      "Strata CRM",
+      5
+    );
+  } else {
+    archiveAllPendingCOAForClient_(clientID);
+  }
+}
+
+/***********************
+  STATUS-BASED FOLLOW UP
+************************/
+function computeNextFollowUpDateByStatus_(baseDate, status) {
+  if (!(baseDate instanceof Date) || isNaN(baseDate)) return null;
+
+  const normalizedStatus = normalizeStatus_(status);
+
+  if (normalizedStatus === "newly contacted") {
+    return addWorkingDaysExcludingStart_(baseDate, 5);
+  }
+
+  if (normalizedStatus === "negotiation") {
+    return addCalendarDaysThenAdjustWeekday_(baseDate, 7);
+  }
+
+  if (normalizedStatus === "for quotation") {
+    return addWorkingDaysExcludingStart_(baseDate, 7);
+  }
+
+  if (normalizedStatus === "for presentation" || normalizedStatus === "closing") {
+    return promptForPresentationFollowUpDate_();
+  }
+
+  if (normalizedStatus === "closed won" || normalizedStatus === "closed lost") {
+    return null;
+  }
+
+  return addWorkingDaysExcludingStart_(baseDate, 5);
+}
+
+function promptForPresentationFollowUpDate_() {
+  const response = Browser.inputBox(
+    "Next Follow-up Date",
+    "Please enter the next follow-up date in mm/dd/yyyy format.",
+    Browser.Buttons.OK_CANCEL
+  );
+
+  if (response === "cancel") {
+    throw new Error("Follow-up date entry was cancelled.");
+  }
+
+  const parsed = parseUserDateString_(response);
+  if (!parsed) {
+    throw new Error("Invalid date format. Please use mm/dd/yyyy.");
+  }
+
+  return parsed;
+}
+
+function parseUserDateString_(text) {
+  const value = String(text || "").trim();
+  const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+  if (!match) return null;
+
+  const month = Number(match[1]) - 1;
+  const day = Number(match[2]);
+  const year = Number(match[3]);
+
+  const date = new Date(year, month, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+function normalizeStatus_(status) {
+  return String(status || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s*-\s*/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function isClosedStatus_(status) {
+  const normalizedStatus = normalizeStatus_(status);
+  return normalizedStatus === "closed won" || normalizedStatus === "closed lost";
+}
+
+function addCalendarDaysThenAdjustWeekday_(startDate, daysToAdd) {
+  const result = stripTime_(new Date(startDate));
+  result.setDate(result.getDate() + daysToAdd);
+  return moveToNextWeekday(result);
+}
+
+/***********************
+  PENDING QUOTATION QUEUE
+************************/
+function ensurePendingQuoteSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(PENDING_QUOTE_SHEET_NAME);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(PENDING_QUOTE_SHEET_NAME);
+    sheet.getRange(1, 1, 1, 6).setValues([[
+      "Timestamp",
+      "Client ID",
+      "Client Name",
+      "Provider",
+      "Processed",
+      "Sequence"
+    ]]);
+    sheet.hideSheet();
+  }
+}
+
+function queuePendingQuotation_(clientID, clientName, provider) {
+  ensurePendingQuoteSheet_();
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, PENDING_QUOTE_SHEET_NAME);
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow >= 2) {
+    const data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+
+    for (let i = 0; i < data.length; i++) {
+      const rowClientID = String(data[i][1] || "").trim();
+      const rowProvider = String(data[i][3] || "").trim().toLowerCase();
+      const processed = String(data[i][4] || "").trim();
+
+      if (
+        rowClientID === String(clientID).trim() &&
+        rowProvider === String(provider).trim().toLowerCase() &&
+        processed !== "YES"
+      ) {
+        return;
+      }
+    }
+  }
+
+  const nextSequence = getNextPendingSequence_(sheet);
+  sheet.appendRow([new Date(), clientID, clientName, provider, "", nextSequence]);
+}
+
+function getNextPendingSequence_(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 1;
+
+  const values = sheet.getRange(2, 6, lastRow - 1, 1).getValues().flat();
+  let maxNum = 0;
+
+  values.forEach(function(v) {
+    const num = Number(v);
+    if (!isNaN(num) && num > maxNum) {
+      maxNum = num;
+    }
+  });
+
+  return maxNum + 1;
+}
+
+function getNextPendingQuotation_() {
+  ensurePendingQuoteSheet_();
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, PENDING_QUOTE_SHEET_NAME);
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) return null;
+
+  const data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+  let latest = null;
+
+  for (let i = 0; i < data.length; i++) {
+    const processed = String(data[i][4] || "").trim();
+    const sequence = Number(data[i][5] || 0);
+
+    if (processed !== "YES") {
+      if (!latest || sequence > latest.sequence) {
+        latest = {
+          queueRow: i + 2,
+          clientID: data[i][1],
+          clientName: data[i][2],
+          provider: data[i][3],
+          sequence: sequence
+        };
+      }
+    }
+  }
+
+  return latest;
+}
+
+function markPendingQuotationProcessed_(queueRow) {
+  if (!queueRow || Number(queueRow) < 2) {
+    throw new Error("Invalid queue row: " + queueRow);
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, PENDING_QUOTE_SHEET_NAME);
+  sheet.getRange(Number(queueRow), 5).setValue("YES");
+}
+
+/***********************
+  COA MASTER OPTIONS
+************************/
+function getCOAContactTypeMasterOptions_() {
+  return ["Call/Text", "Email", "Visit/Meeting", "Presentation"];
+}
+
+function getCOAAssignedMasterOptions_() {
+  return ["JMEG", "JJDD", "JRBP", "RC"];
+}
+
+/***********************
+  PENDING COA QUEUE
+************************/
+function ensurePendingCOASheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(PENDING_COA_SHEET_NAME);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(PENDING_COA_SHEET_NAME);
+    sheet.getRange(1, 1, 1, 9).setValues([[
+      "Timestamp",
+      "Activity Date",
+      "Client ID",
+      "Client Name",
+      "Contact Type",
+      "Task",
+      "Assigned",
+      "Processed",
+      "Sequence"
+    ]]);
+    sheet.hideSheet();
+    return;
+  }
+
+  if (sheet.getLastColumn() < 9) {
+    sheet.insertColumnBefore(6);
+  }
+
+  sheet.getRange(1, 1, 1, 9).setValues([[
+    "Timestamp",
+    "Activity Date",
+    "Client ID",
+    "Client Name",
+    "Contact Type",
+    "Task",
+    "Assigned",
+    "Processed",
+    "Sequence"
+  ]]);
+
+  if (!sheet.isSheetHidden()) {
+    sheet.hideSheet();
+  }
+}
+
+function queuePendingCOA_(activityDate, clientID, clientName, contactType, assigned, task) {
+  if (!(activityDate instanceof Date) || isNaN(activityDate)) return;
+
+  ensurePendingCOASheet_();
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, PENDING_COA_SHEET_NAME);
+  const lastRow = sheet.getLastRow();
+  const normalizedClientID = String(clientID || "").trim();
+  const normalizedTask = normalizeTaskKey_(task);
+
+  const unprocessedMatches = [];
+
+  if (lastRow >= 2) {
+    const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+
+    for (let i = 0; i < data.length; i++) {
+      const rowNumber = i + 2;
+      const rowClientID = String(data[i][2] || "").trim();
+      const rowTask = normalizeTaskKey_(data[i][5]);
+      const processed = String(data[i][7] || "").trim();
+      const sequence = Number(data[i][8] || 0);
+
+      if (processed === "YES") continue;
+      if (rowClientID !== normalizedClientID) continue;
+
+      if (normalizedTask) {
+        if (rowTask === normalizedTask) {
+          unprocessedMatches.push({ row: rowNumber, sequence: sequence });
+        }
+      } else {
+        if (!rowTask) {
+          unprocessedMatches.push({ row: rowNumber, sequence: sequence });
+        }
+      }
+    }
+  }
+
+  if (unprocessedMatches.length > 0) {
+    unprocessedMatches.sort(function(a, b) {
+      return b.sequence - a.sequence;
+    });
+
+    const keepRow = unprocessedMatches[0].row;
+
+    sheet.getRange(keepRow, 1).setValue(new Date());
+    sheet.getRange(keepRow, 2).setValue(activityDate).setNumberFormat("mm/dd/yyyy");
+    sheet.getRange(keepRow, 3).setValue(clientID);
+    sheet.getRange(keepRow, 4).setValue(clientName);
+    sheet.getRange(keepRow, 5).setValue(contactType || "");
+    sheet.getRange(keepRow, 6).setValue(task || "");
+    sheet.getRange(keepRow, 7).setValue(assigned || "");
+    sheet.getRange(keepRow, 8).setValue("");
+
+    for (let i = 1; i < unprocessedMatches.length; i++) {
+      sheet.getRange(unprocessedMatches[i].row, 8).setValue("YES");
+    }
+
+    return;
+  }
+
+  const nextSequence = getNextPendingCOASequence_(sheet);
+  sheet.appendRow([
+    new Date(),
+    activityDate,
+    clientID,
+    clientName,
+    contactType || "",
+    task || "",
+    assigned || "",
+    "",
+    nextSequence
+  ]);
+}
+
+function archiveAllPendingCOAForClient_(clientID) {
+  if (!clientID) return;
+
+  ensurePendingCOASheet_();
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, PENDING_COA_SHEET_NAME);
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) return;
+
+  const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+
+  for (let i = 0; i < data.length; i++) {
+    const rowNumber = i + 2;
+    const rowClientID = String(data[i][2] || "").trim();
+    const processed = String(data[i][7] || "").trim();
+
+    if (rowClientID === String(clientID).trim() && processed !== "YES") {
+      sheet.getRange(rowNumber, 8).setValue("YES");
+    }
+  }
+}
+
+function getNextPendingCOASequence_(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 1;
+
+  const values = sheet.getRange(2, 9, lastRow - 1, 1).getValues().flat();
+  let maxNum = 0;
+
+  values.forEach(function(v) {
+    const num = Number(v);
+    if (!isNaN(num) && num > maxNum) {
+      maxNum = num;
+    }
+  });
+
+  return maxNum + 1;
+}
+
+function getPendingCOAForClient_(clientID) {
+  ensurePendingCOASheet_();
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, PENDING_COA_SHEET_NAME);
+
+  const contactTypeOptions = getCOAContactTypeMasterOptions_();
+  const assignedOptions = getCOAAssignedMasterOptions_();
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+
+  const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+  let selected = null;
+
+  for (let i = 0; i < data.length; i++) {
+    const rowClientID = String(data[i][2] || "").trim();
+    const processed = String(data[i][7] || "").trim();
+    const sequence = Number(data[i][8] || 0);
+
+    if (processed === "YES") continue;
+    if (rowClientID !== String(clientID).trim()) continue;
+
+    if (!selected || sequence > selected.sequence) {
+      selected = {
+        queueRow: i + 2,
+        activityDate: formatDateForInput(data[i][1]),
+        clientID: data[i][2],
+        clientName: data[i][3],
+        contactType: data[i][4] || "",
+        task: data[i][5] || "",
+        notes: data[i][5] || "",
+        assigned: data[i][6] || "",
+        sequence: sequence,
+        contactTypeOptions: contactTypeOptions,
+        assignedOptions: assignedOptions
+      };
+    }
+  }
+
+  return selected;
+}
+
+function markPendingCOAProcessed_(queueRow) {
+  if (!queueRow || Number(queueRow) < 2) {
+    throw new Error("Invalid COA queue row: " + queueRow);
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, PENDING_COA_SHEET_NAME);
+  sheet.getRange(Number(queueRow), 8).setValue("YES");
+}
+
+function openUnifiedCOAForm() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const activeSheet = ss.getActiveSheet();
+
+  if (!activeSheet || activeSheet.getName() !== SOURCE_CLIENT_SHEET_NAME) {
+    SpreadsheetApp.getActive().toast(
+      "No client row selected. Switching to manual mode...",
+      "Strata CRM",
+      3
+    );
+    openManualCOAForm();
+    return;
+  }
+
+  const range = activeSheet.getActiveRange();
+  if (!range) {
+    SpreadsheetApp.getActive().toast(
+      "No client row selected. Switching to manual mode...",
+      "Strata CRM",
+      3
+    );
+    openManualCOAForm();
+    return;
+  }
+
+  const row = range.getRow();
+  if (row <= 1) {
+    SpreadsheetApp.getActive().toast(
+      "Header row selected. Switching to manual mode...",
+      "Strata CRM",
+      3
+    );
+    openManualCOAForm();
+    return;
+  }
+
+  const headers = getHeaderMap(activeSheet, 1);
+  const colClientID = headers["Client ID"];
+  const colClientName = headers["Client Name"];
+
+  if (!colClientID || !colClientName) {
+    SpreadsheetApp.getActive().toast(
+      "Client columns not found. Switching to manual mode...",
+      "Strata CRM",
+      3
+    );
+    openManualCOAForm();
+    return;
+  }
+
+  const clientID = String(activeSheet.getRange(row, colClientID).getValue() || "").trim();
+
+  if (!clientID) {
+    SpreadsheetApp.getActive().toast(
+      "No client found on selected row. Switching to manual mode...",
+      "Strata CRM",
+      3
+    );
+    openManualCOAForm();
+    return;
+  }
+
+  const pending = getPendingCOAForClient_(clientID);
+
+  if (pending) {
+    SpreadsheetApp.getActive().toast(
+      "Opening pending task...",
+      "Strata CRM",
+      3
+    );
+
+    const html = HtmlService.createTemplateFromFile("COAForm");
+    html.data = pending;
+
+    SpreadsheetApp.getUi().showModalDialog(
+      html.evaluate().setWidth(500).setHeight(620),
+      "Complete COA Task"
+    );
+    return;
+  }
+
+  SpreadsheetApp.getActive().toast(
+    "No pending found, switching to manual mode...",
+    "Strata CRM",
+    3
+  );
+  openManualCOAForm();
+}
+
+function openPendingCOAForm() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const clientSheet = getSheetOrThrow_(ss, SOURCE_CLIENT_SHEET_NAME);
+  const range = clientSheet.getActiveRange();
+
+  if (!range) {
+    SpreadsheetApp.getUi().alert("Please select a client row in the Client sheet first.");
+    return;
+  }
+
+  const row = range.getRow();
+  if (row === 1) {
+    SpreadsheetApp.getUi().alert("Please select a client row below the header.");
+    return;
+  }
+
+  const headers = getHeaderMap(clientSheet, 1);
+  const colClientID = headers["Client ID"];
+  const colClientName = headers["Client Name"];
+
+  if (!colClientID || !colClientName) {
+    SpreadsheetApp.getUi().alert("Missing 'Client ID' or 'Client Name' header in Client sheet.");
+    return;
+  }
+
+  const clientID = String(clientSheet.getRange(row, colClientID).getValue() || "").trim();
+  const clientName = String(clientSheet.getRange(row, colClientName).getValue() || "").trim();
+
+  if (!clientID) {
+    SpreadsheetApp.getUi().alert("The selected client row has no Client ID.");
+    return;
+  }
+
+  const pending = getPendingCOAForClient_(clientID);
+
+  if (!pending) {
+    SpreadsheetApp.getUi().alert("No pending COA task found for selected client: " + clientName);
+    return;
+  }
+
+  const html = HtmlService.createTemplateFromFile("COAForm");
+  html.data = pending;
+
+  SpreadsheetApp.getUi().showModalDialog(
+    html.evaluate().setWidth(500).setHeight(620),
+    "Complete COA Task"
+  );
+}
+
+function saveCOAForm(formData) {
+  syncCOAContactTypeValidation_();
+
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getSheetOrThrow_(ss, COA_SHEET_NAME);
+    const headers = getHeaderMap(sheet, 1);
+
+    const notesHeader = getExistingHeaderName_(headers, ["Notes", "Task"]);
+    const assignedHeader = getExistingHeaderName_(headers, ["Assigned"]);
+    const contactTypeHeader = getExistingHeaderName_(headers, ["Contact Type"]);
+    const activityDateHeader = getExistingHeaderName_(headers, ["Activity Date"]);
+    const clientIdHeader = getExistingHeaderName_(headers, ["Client ID"]);
+    const clientNameHeader = getExistingHeaderName_(headers, ["Client Name"]);
+    const dateCompletedHeader = getExistingHeaderName_(headers, ["Date Completed"]);
+
+    const requiredHeaders = [
+      activityDateHeader,
+      clientIdHeader,
+      clientNameHeader,
+      contactTypeHeader,
+      notesHeader,
+      assignedHeader,
+      dateCompletedHeader
+    ];
+
+    for (let i = 0; i < requiredHeaders.length; i++) {
+      if (!requiredHeaders[i]) {
+        throw new Error("Missing required header in COA sheet.");
+      }
+    }
+
+    const queueRow = Number(formData.queueRow);
+    const activityDate = parseIsoDateInput_(formData.activityDate);
+    const clientID = String(formData.clientID || "").trim();
+    const clientName = String(formData.clientName || "").trim();
+    const contactType = String(formData.contactType || "").trim();
+    const notes = String(formData.notes || formData.task || "").trim();
+    const assigned = String(formData.assigned || "").trim();
+
+    if (!queueRow || queueRow < 2) throw new Error("Invalid pending COA row.");
+    if (!activityDate) throw new Error("Invalid Activity Date.");
+    if (!clientID) throw new Error("Client ID is required.");
+    if (!clientName) throw new Error("Client Name is required.");
+    if (!contactType) throw new Error("Contact Type is required.");
+    if (!notes) throw new Error("Task is required.");
+    if (!assigned) throw new Error("Assigned is required.");
+
+    const hasDuplicate = hasOpenCOADuplicate_(sheet, headers, {
+      clientID: clientID,
+      clientName: clientName,
+      contactType: contactType,
+      task: notes,
+      assigned: assigned
+    });
+
+    if (hasDuplicate) {
+      markPendingCOAProcessed_(queueRow);
+      SpreadsheetApp.flush();
+      return "Duplicate blocked: an open COA task with the same client, contact type, task, and assigned user already exists.";
+    }
+
+    const newRow = getNextDataRow_(sheet);
+
+    sheet.getRange(newRow, headers[activityDateHeader]).setValue(activityDate).setNumberFormat("mm/dd/yyyy");
+    sheet.getRange(newRow, headers[clientIdHeader]).setValue(clientID);
+    sheet.getRange(newRow, headers[clientNameHeader]).setValue(clientName);
+    sheet.getRange(newRow, headers[contactTypeHeader]).setValue(contactType);
+    sheet.getRange(newRow, headers[notesHeader]).setValue(notes);
+    sheet.getRange(newRow, headers[assignedHeader]).setValue(assigned);
+    sheet.getRange(newRow, headers[dateCompletedHeader]).clearContent();
+
+    markPendingCOAProcessed_(queueRow);
+    SpreadsheetApp.flush();
+
+    return "COA task created successfully.";
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/***********************
+  MANUAL COA FORM
+************************/
+function openManualCOAForm() {
+  const data = getManualCOAFormData_();
+  const html = HtmlService.createTemplateFromFile("ManualCOAForm");
+  html.data = data;
+
+  SpreadsheetApp.getUi().showModalDialog(
+    html.evaluate().setWidth(520).setHeight(620),
+    "Manual COA Task"
+  );
+}
+
+function getManualCOAFormData_() {
+  const selectedClient = getSelectedClientContextForManualTask_();
+
+  return {
+    activityDate: formatDateForInput(new Date()),
+    clientID: selectedClient.clientID,
+    clientName: selectedClient.clientName,
+    contactType: "",
+    task: "",
+    assigned: "",
+    contactTypeOptions: getCOAContactTypeMasterOptions_(),
+    assignedOptions: getCOAAssignedMasterOptions_(),
+    sourceSheetName: selectedClient.sourceSheetName,
+    sourceRow: selectedClient.sourceRow
+  };
+}
+
+function getSelectedClientContextForManualTask_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const activeSheet = ss.getActiveSheet();
+
+  if (!activeSheet || activeSheet.getName() !== SOURCE_CLIENT_SHEET_NAME) {
+    return {
+      clientID: "",
+      clientName: "",
+      sourceSheetName: "",
+      sourceRow: ""
+    };
+  }
+
+  const range = activeSheet.getActiveRange();
+  if (!range) {
+    return {
+      clientID: "",
+      clientName: "",
+      sourceSheetName: SOURCE_CLIENT_SHEET_NAME,
+      sourceRow: ""
+    };
+  }
+
+  const row = range.getRow();
+  if (row <= 1) {
+    return {
+      clientID: "",
+      clientName: "",
+      sourceSheetName: SOURCE_CLIENT_SHEET_NAME,
+      sourceRow: ""
+    };
+  }
+
+  const headers = getHeaderMap(activeSheet, 1);
+  const colClientID = headers["Client ID"];
+  const colClientName = headers["Client Name"];
+
+  if (!colClientID || !colClientName) {
+    return {
+      clientID: "",
+      clientName: "",
+      sourceSheetName: SOURCE_CLIENT_SHEET_NAME,
+      sourceRow: ""
+    };
+  }
+
+  const clientID = String(activeSheet.getRange(row, colClientID).getValue() || "").trim();
+  const clientName = String(activeSheet.getRange(row, colClientName).getValue() || "").trim();
+
+  if (!clientID && !clientName) {
+    return {
+      clientID: "",
+      clientName: "",
+      sourceSheetName: SOURCE_CLIENT_SHEET_NAME,
+      sourceRow: ""
+    };
+  }
+
+  return {
+    clientID: clientID,
+    clientName: clientName,
+    sourceSheetName: SOURCE_CLIENT_SHEET_NAME,
+    sourceRow: row
+  };
+}
+
+function saveManualCOAForm(formData) {
+  syncCOAContactTypeValidation_();
+
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getSheetOrThrow_(ss, COA_SHEET_NAME);
+    const headers = getHeaderMap(sheet, 1);
+
+    const taskHeader = getExistingHeaderName_(headers, ["Task", "Notes"]);
+    const assignedHeader = getExistingHeaderName_(headers, ["Assigned"]);
+    const contactTypeHeader = getExistingHeaderName_(headers, ["Contact Type"]);
+    const activityDateHeader = getExistingHeaderName_(headers, ["Activity Date"]);
+    const clientIdHeader = getExistingHeaderName_(headers, ["Client ID"]);
+    const clientNameHeader = getExistingHeaderName_(headers, ["Client Name"]);
+    const dateCompletedHeader = getExistingHeaderName_(headers, ["Date Completed"]);
+
+    const requiredHeaders = [
+      activityDateHeader,
+      contactTypeHeader,
+      taskHeader,
+      assignedHeader,
+      dateCompletedHeader
+    ];
+
+    for (let i = 0; i < requiredHeaders.length; i++) {
+      if (!requiredHeaders[i]) {
+        throw new Error("Missing required header in COA sheet.");
+      }
+    }
+
+    const activityDate = parseIsoDateInput_(formData.activityDate);
+    const clientID = String(formData.clientID || "").trim();
+    const clientName = String(formData.clientName || "").trim();
+    const contactType = String(formData.contactType || "").trim();
+    const task = String(formData.task || "").trim();
+    const assigned = String(formData.assigned || "").trim();
+
+    if (!activityDate) throw new Error("Invalid Activity Date.");
+    if (!contactType) throw new Error("Contact Type is required.");
+    if (!task) throw new Error("Task is required.");
+    if (!assigned) throw new Error("Assigned is required.");
+
+    const hasDuplicate = hasOpenCOADuplicate_(sheet, headers, {
+      clientID: clientID,
+      clientName: clientName,
+      contactType: contactType,
+      task: task,
+      assigned: assigned
+    });
+
+    if (hasDuplicate) {
+      SpreadsheetApp.flush();
+      return "Duplicate blocked: an open COA task with the same details already exists.";
+    }
+
+    const newRow = getNextDataRow_(sheet);
+
+    sheet.getRange(newRow, headers[activityDateHeader]).setValue(activityDate).setNumberFormat("mm/dd/yyyy");
+
+    if (clientIdHeader) {
+      sheet.getRange(newRow, headers[clientIdHeader]).setValue(clientID);
+    }
+
+    if (clientNameHeader) {
+      sheet.getRange(newRow, headers[clientNameHeader]).setValue(clientName);
+    }
+
+    sheet.getRange(newRow, headers[contactTypeHeader]).setValue(contactType);
+    sheet.getRange(newRow, headers[taskHeader]).setValue(task);
+    sheet.getRange(newRow, headers[assignedHeader]).setValue(assigned);
+    sheet.getRange(newRow, headers[dateCompletedHeader]).clearContent();
+
+    SpreadsheetApp.flush();
+    return clientID || clientName
+      ? "Manual client-related COA task added successfully."
+      : "Manual non-client COA task added successfully.";
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+
+function hasOpenCOADuplicate_(sheet, headers, taskData) {
+  const clientIdHeader = getExistingHeaderName_(headers, ["Client ID"]);
+  const clientNameHeader = getExistingHeaderName_(headers, ["Client Name"]);
+  const contactTypeHeader = getExistingHeaderName_(headers, ["Contact Type"]);
+  const taskHeader = getExistingHeaderName_(headers, ["Task", "Notes"]);
+  const assignedHeader = getExistingHeaderName_(headers, ["Assigned"]);
+  const dateCompletedHeader = getExistingHeaderName_(headers, ["Date Completed"]);
+
+  if (!contactTypeHeader || !taskHeader || !assignedHeader || !dateCompletedHeader) {
+    throw new Error("Missing required header(s) in COA sheet for duplicate checking.");
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return false;
+
+  const data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+
+  const idxClientID = clientIdHeader ? headers[clientIdHeader] - 1 : -1;
+  const idxClientName = clientNameHeader ? headers[clientNameHeader] - 1 : -1;
+  const idxContactType = headers[contactTypeHeader] - 1;
+  const idxTask = headers[taskHeader] - 1;
+  const idxAssigned = headers[assignedHeader] - 1;
+  const idxDateCompleted = headers[dateCompletedHeader] - 1;
+
+  const targetClientID = String(taskData.clientID || "").trim().toLowerCase();
+  const targetClientName = String(taskData.clientName || "").trim().toLowerCase();
+  const targetContactType = String(taskData.contactType || "").trim().toLowerCase();
+  const targetTask = String(taskData.task || "").trim().toLowerCase();
+  const targetAssignedSet = splitAssignedSet_(taskData.assigned);
+
+  for (let i = 0; i < data.length; i++) {
+    const rowClientID = idxClientID >= 0 ? String(data[i][idxClientID] || "").trim().toLowerCase() : "";
+    const rowClientName = idxClientName >= 0 ? String(data[i][idxClientName] || "").trim().toLowerCase() : "";
+    const rowContactType = String(data[i][idxContactType] || "").trim().toLowerCase();
+    const rowTask = String(data[i][idxTask] || "").trim().toLowerCase();
+    const rowAssignedSet = splitAssignedSet_(data[i][idxAssigned]);
+    const rowDateCompleted = data[i][idxDateCompleted];
+
+    const isOpen = rowDateCompleted === "" || rowDateCompleted === null;
+    if (!isOpen) continue;
+
+    const sameTaskDetails =
+      rowContactType === targetContactType &&
+      rowTask === targetTask;
+
+    if (!sameTaskDetails) continue;
+    if (!hasAssignedOverlap_(rowAssignedSet, targetAssignedSet)) continue;
+
+    if (targetClientID) {
+      if (rowClientID === targetClientID) {
+        return true;
+      }
+      continue;
+    }
+
+    if (!rowClientID && rowClientName === targetClientName) {
+      return true;
+    }
+
+    if (!targetClientName && !rowClientID && !rowClientName) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function splitAssignedSet_(value) {
+  const result = {};
+  String(value || "")
+    .split(",")
+    .map(function(v) { return String(v || "").trim().toLowerCase(); })
+    .filter(function(v) { return v !== ""; })
+    .forEach(function(v) { result[v] = true; });
+  return result;
+}
+
+function hasAssignedOverlap_(setA, setB) {
+  for (var key in setA) {
+    if (setB[key]) return true;
+  }
+  return false;
+}
+
+
+/***********************
+  EXISTING QUOTATION FORM
+************************/
+function openExistingQuotationForm_(clientID, clientName, provider, queueRow) {
+  const data = getExistingQuotationFormData_(clientID, clientName, provider);
+  data.queueRow = queueRow || "";
+  const html = HtmlService.createTemplateFromFile("QuotationForm");
+  html.data = data;
+
+  SpreadsheetApp.getUi().showModalDialog(
+    html.evaluate().setWidth(560).setHeight(640),
+    "Existing Quotation Record"
+  );
+}
+
+function getExistingQuotationFormData_(clientID, clientName, provider) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const quotationSheet = getSheetOrThrow_(ss, SOURCE_QUOTATIONS_SHEET_NAME);
+  const qHeaders = getHeaderMap(quotationSheet, 1);
+
+  requireHeaders_(
+    qHeaders,
+    [
+      "Client ID",
+      "Client Name",
+      "Provider",
+      "Franchise Date",
+      "Franchise Ending Date",
+      "Initial Email Sent",
+      "Rates",
+      "TOR & SOB (Y/N)",
+      "Requests"
+    ],
+    "Quotations sheet"
+  );
+
+  const existingRow = findExistingQuotationRow_(quotationSheet, qHeaders, clientID, provider);
+
+  const data = {
+    row: existingRow || "",
+    queueRow: "",
+    clientID: clientID,
+    clientName: clientName,
+    provider: provider,
+    franchiseDate: "",
+    franchiseEndingDate: "",
+    initialEmailSent: "",
+    rates: "",
+    torSob: "",
+    requests: "",
+    rateOptions: ["SME", "Corporate"],
+    torSobOptions: ["Y", "N"]
+  };
+
+  if (existingRow) {
+    data.clientName = String(quotationSheet.getRange(existingRow, qHeaders["Client Name"]).getValue() || clientName).trim();
+    data.provider = normalizeProviderNameForDisplay_(quotationSheet.getRange(existingRow, qHeaders["Provider"]).getValue() || provider);
+    data.franchiseDate = formatDateForInput(quotationSheet.getRange(existingRow, qHeaders["Franchise Date"]).getValue());
+    data.franchiseEndingDate = formatDateForInput(quotationSheet.getRange(existingRow, qHeaders["Franchise Ending Date"]).getValue());
+    data.initialEmailSent = formatDateForInput(quotationSheet.getRange(existingRow, qHeaders["Initial Email Sent"]).getValue());
+    data.rates = String(quotationSheet.getRange(existingRow, qHeaders["Rates"]).getValue() || "").trim();
+    data.torSob = String(quotationSheet.getRange(existingRow, qHeaders["TOR & SOB (Y/N)"]).getValue() || "").trim();
+    data.requests = String(quotationSheet.getRange(existingRow, qHeaders["Requests"]).getValue() || "").trim();
+  }
+
+  return data;
+}
+
+function saveExistingQuotationForm(formData) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const quotationSheet = getSheetOrThrow_(ss, SOURCE_QUOTATIONS_SHEET_NAME);
+  const qHeaders = getHeaderMap(quotationSheet, 1);
+
+  requireHeaders_(
+    qHeaders,
+    [
+      "Quote ID",
+      "Client ID",
+      "Client Name",
+      "Provider",
+      "Franchise Date",
+      "Franchise Ending Date",
+      "Initial Email Sent",
+      "Turnaround Time",
+      "Status",
+      "Date Released",
+      "Rates",
+      "TOR & SOB (Y/N)",
+      "Requests",
+      "Email Thread ID"
+    ],
+    "Quotations sheet"
+  );
+
+  const clientID = String(formData.clientID || "").trim();
+  const clientName = String(formData.clientName || "").trim();
+  const provider = normalizeProviderNameForDisplay_(formData.provider);
+  const rates = normalizeRateType_(formData.rates);
+  const torSob = normalizeYNValue_(formData.torSob);
+  const requests = String(formData.requests || "").trim();
+
+  if (!clientID) throw new Error("Client ID is required.");
+  if (!clientName) throw new Error("Client Name is required.");
+  if (!provider) throw new Error("Provider is required.");
+  if (!rates) throw new Error("Rates must be SME or Corporate.");
+  if (!torSob) throw new Error("TOR & SOB must be Y or N.");
+
+  const franchiseDate = formData.franchiseDate ? parseIsoDateInput_(formData.franchiseDate) : null;
+  const franchiseEndingDate = formData.franchiseEndingDate ? parseIsoDateInput_(formData.franchiseEndingDate) : null;
+  const initialEmailSent = formData.initialEmailSent ? parseIsoDateInput_(formData.initialEmailSent) : null;
+
+  if (formData.franchiseDate && !franchiseDate) throw new Error("Invalid Franchise Date.");
+  if (formData.franchiseEndingDate && !franchiseEndingDate) throw new Error("Invalid Franchise Ending Date.");
+  if (formData.initialEmailSent && !initialEmailSent) throw new Error("Invalid Initial Email Sent date.");
+
+  let row = Number(formData.row || 0);
+  if (!row || row < 2) {
+    row = findExistingQuotationRow_(quotationSheet, qHeaders, clientID, provider) || getNextDataRow_(quotationSheet, qHeaders, "Quote ID");
+  }
+
+  const quoteIDCell = quotationSheet.getRange(row, qHeaders["Quote ID"]);
+  if (!String(quoteIDCell.getValue() || "").trim()) {
+    quoteIDCell.setValue(generateNextQuoteID(quotationSheet, qHeaders["Quote ID"]));
+  }
+
+  quotationSheet.getRange(row, qHeaders["Client ID"]).setValue(clientID);
+  quotationSheet.getRange(row, qHeaders["Client Name"]).setValue(clientName);
+  quotationSheet.getRange(row, qHeaders["Provider"]).setValue(provider);
+
+  setDateOrClear_(quotationSheet.getRange(row, qHeaders["Franchise Date"]), franchiseDate);
+  setDateOrClear_(quotationSheet.getRange(row, qHeaders["Franchise Ending Date"]), franchiseEndingDate);
+  setDateOrClear_(quotationSheet.getRange(row, qHeaders["Initial Email Sent"]), initialEmailSent);
+
+  quotationSheet.getRange(row, qHeaders["Rates"]).setValue(rates);
+  quotationSheet.getRange(row, qHeaders["TOR & SOB (Y/N)"]).setValue(torSob);
+  quotationSheet.getRange(row, qHeaders["Requests"]).setValue(requests);
+
+  applyQuotationRowFormulas_(quotationSheet, qHeaders, row);
+  SpreadsheetApp.flush();
+
+  return "Existing quotation record saved successfully.";
+}
+
+function setDateOrClear_(range, value) {
+  if (value instanceof Date && !isNaN(value)) {
+    range.setValue(value).setNumberFormat("mm/dd/yyyy");
+  } else {
+    range.clearContent();
+  }
+}
+
+/***********************
+  QUOTATION ENTRY FORM
+************************/
+/***********************
+  QUOTATION ENTRY FORM
+************************/
+function openPendingQuotationForm() {
+  const pending = getNextPendingQuotation_();
+
+  if (!pending) {
+    SpreadsheetApp.getUi().alert(
+      "No pending existing quotation form found.\n\nTo queue one, select a provider in the Client sheet and choose Yes on the Existing Quotation Check."
+    );
+    return;
+  }
+
+  openExistingQuotationForm_(
+    pending.clientID,
+    pending.clientName,
+    pending.provider,
+    pending.queueRow
+  );
+}
+
+function saveQuotationForm(formData) {
+  return saveExistingQuotationForm(formData);
+}
+
+function findExistingQuotationRow_(sheet, headers, clientID, provider) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+
+  const data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+
+  const idxClientID = headers["Client ID"] - 1;
+  const idxProvider = headers["Provider"] - 1;
+  const idxDateReleased = headers["Date Released"] - 1;
+  const idxStatus = headers["Status"] ? headers["Status"] - 1 : -1;
+
+  const normalizedClientID = String(clientID || "").trim();
+  const normalizedProvider = normalizeProviderNameForMatch_(provider);
+
+  for (let i = 0; i < data.length; i++) {
+    const rowClientID = String(data[i][idxClientID] || "").trim();
+    const rowProvider = normalizeProviderNameForMatch_(data[i][idxProvider]);
+    const rowDateReleased = data[i][idxDateReleased];
+    const rowStatus = idxStatus >= 0 ? String(data[i][idxStatus] || "").trim().toLowerCase() : "";
+
+    const isSameClient = rowClientID === normalizedClientID;
+    const isSameProvider = rowProvider === normalizedProvider;
+    const isStillOpen = !rowDateReleased && rowStatus !== "released" && rowStatus !== "completed";
+
+    if (isSameClient && isSameProvider && isStillOpen) {
+      return i + 2;
+    }
+  }
+
+  return null;
+}
+
+function generateNextQuoteID(sheet, quoteIDCol) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return "Q-0001";
+
+  const values = sheet.getRange(2, quoteIDCol, lastRow - 1, 1).getDisplayValues().flat();
+  let maxNum = 0;
+
+  values.forEach(function(id) {
+    const text = String(id || "").trim();
+    const match = text.match(/^Q-(\d+)$/i);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxNum) maxNum = num;
+    }
+  });
+
+  return "Q-" + String(maxNum + 1).padStart(4, "0");
+}
+
+function getNextDataRow_(sheet, headers, preferredHeaderName) {
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+
+  if (lastRow < 2) return 2;
+
+  if (headers && preferredHeaderName && headers[preferredHeaderName]) {
+    const keyCol = headers[preferredHeaderName];
+    const values = sheet.getRange(2, keyCol, lastRow - 1, 1).getDisplayValues();
+
+    for (let i = 0; i < values.length; i++) {
+      if (String(values[i][0] || "").trim() === "") {
+        return i + 2;
+      }
+    }
+
+    return lastRow + 1;
+  }
+
+  const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+  for (let i = 0; i < data.length; i++) {
+    const hasAnyValue = data[i].some(function(cell) {
+      return String(cell || "").trim() !== "";
+    });
+
+    if (!hasAnyValue) {
+      return i + 2;
+    }
+  }
+
+  return lastRow + 1;
+}
+
+function buildTurnaroundFormulaR1C1_(headers) {
+  const offsetInitialEmailSent = headers["Initial Email Sent"] - headers["Turnaround Time"];
+  return '=IF(R[0]C[' + offsetInitialEmailSent + ']="","",WORKDAY(R[0]C[' + offsetInitialEmailSent + '],7))';
+}
+
+function buildStatusFormulaR1C1_(headers) {
+  const offsetFranchiseDate = headers["Franchise Date"] - headers["Status"];
+  const offsetFranchiseEnding = headers["Franchise Ending Date"] - headers["Status"];
+  const offsetInitialEmailSent = headers["Initial Email Sent"] - headers["Status"];
+  const offsetTurnaround = headers["Turnaround Time"] - headers["Status"];
+  const offsetDateReleased = headers["Date Released"] - headers["Status"];
+
+  return (
+    '=IF(R[0]C[' + offsetDateReleased + ']<>"","Released",' +
+      'IF(AND(R[0]C[' + offsetFranchiseEnding + ']<>"",TODAY()>R[0]C[' + offsetFranchiseEnding + ']),"Franchise Expired",' +
+        'IF(R[0]C[' + offsetInitialEmailSent + ']="","No Email Sent",' +
+          'IF(R[0]C[' + offsetFranchiseDate + ']="",' +
+            'IF(R[0]C[' + offsetTurnaround + ']="","No Email Sent",' +
+              'IF(TODAY()<=R[0]C[' + offsetTurnaround + '],"Within TAT, No Franchise Approval",' +
+                'IF(NETWORKDAYS(R[0]C[' + offsetInitialEmailSent + '],TODAY())<=10,"For Follow-Up, No Franchise Approval","Overdue, No Franchise Approval")' +
+              ')' +
+            '),' +
+            'IF(AND(R[0]C[' + offsetFranchiseEnding + ']<>"",TODAY()>=R[0]C[' + offsetFranchiseEnding + ']-7,TODAY()<=R[0]C[' + offsetFranchiseEnding + ']),"For Franchise Renewal",' +
+              'IF(TODAY()<=R[0]C[' + offsetTurnaround + '],"Within TAT",' +
+                'IF(NETWORKDAYS(R[0]C[' + offsetInitialEmailSent + '],TODAY())<=10,"For Follow-Up","Overdue")' +
+              ')' +
+            ')' +
+          ')' +
+        ')' +
+      ')' +
+    ')'
+  );
+}
+
+function normalizeProviderNameForMatch_(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function normalizeProviderNameForDisplay_(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/***********************
+  QUOTATION TRANSFER ONLY
+************************/
+function handleQuotationSheetEdit_(sheet, row, col) {
+  const headers = getHeaderMap(sheet, 1);
+  const colDateReleased = headers["Date Released"];
+
+  if (!colDateReleased) {
+    throw new Error("Missing 'Date Released' header in Quotations sheet.");
+  }
+
+  if (col !== colDateReleased) return;
+
+  const dateReleased = sheet.getRange(row, colDateReleased).getValue();
+
+  if (dateReleased instanceof Date && !isNaN(dateReleased)) {
+    const response = Browser.msgBox(
+      "Transfer quotation?",
+      "This quotation has a Date Released. Transfer it to QuotationsSummary and delete it from Quotations?",
+      Browser.Buttons.YES_NO
+    );
+
+    if (response === "yes") {
+      appendRowByMatchingHeaders_(sheet, row, TARGET_QUOTATIONS_SHEET_NAME);
+      sheet.deleteRow(row);
+    } else {
+      sheet.getRange(row, colDateReleased).clearContent();
+    }
+  }
+}
+
+/***********************
+  COA SHEET LOGIC
+************************/
+function handleCOASheetEdit_(e, sheet, row, col) {
+  const headers = getHeaderMap(sheet, 1);
+
+  const dateCompletedHeader = getExistingHeaderName_(headers, ["Date Completed"]);
+  const clientIdHeader = getExistingHeaderName_(headers, ["Client ID"]);
+  const clientNameHeader = getExistingHeaderName_(headers, ["Client Name"]);
+  const contactTypeHeader = getExistingHeaderName_(headers, ["Contact Type"]);
+  const notesHeader = getExistingHeaderName_(headers, ["Notes", "Task"]);
+  const assignedHeader = getExistingHeaderName_(headers, ["Assigned"]);
+
+  if (!dateCompletedHeader || !contactTypeHeader || !notesHeader) {
+    throw new Error("Missing required header(s) in COA sheet.");
+  }
+
+  const colDateCompleted = headers[dateCompletedHeader];
+  if (col !== colDateCompleted) return;
+
+  const completedDate = sheet.getRange(row, colDateCompleted).getValue();
+  if (!(completedDate instanceof Date) || isNaN(completedDate)) return;
+
+  const isManualRow = isManualCOARow_(sheet, row, headers);
+
+  if (isManualRow) {
+    moveCOARowToMTaskHistory_(sheet, row);
+
+    SpreadsheetApp.getActive().toast(
+      "Manual COA task moved to MTaskHistory.",
+      "Strata CRM",
+      4
+    );
+    return;
+  }
+
+  const clientID = clientIdHeader ? String(sheet.getRange(row, headers[clientIdHeader]).getValue() || "").trim() : "";
+  const clientName = clientNameHeader ? String(sheet.getRange(row, headers[clientNameHeader]).getValue() || "").trim() : "";
+  const coaContactType = String(sheet.getRange(row, headers[contactTypeHeader]).getValue() || "").trim();
+  const coaNotes = String(sheet.getRange(row, headers[notesHeader]).getValue() || "").trim();
+  const coaAssigned = assignedHeader
+    ? String(sheet.getRange(row, headers[assignedHeader]).getValue() || "").trim()
+    : "";
+
+  if (!clientID) {
+    moveCOARowToMTaskHistory_(sheet, row);
+
+    SpreadsheetApp.getActive().toast(
+      "Manual non-client COA task moved to MTaskHistory.",
+      "Strata CRM",
+      4
+    );
+    return;
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const clientSheet = getSheetOrThrow_(ss, SOURCE_CLIENT_SHEET_NAME);
+  const clientHeaders = getHeaderMap(clientSheet, 1);
+
+  requireHeaders_(
+    clientHeaders,
+    ["Client ID", "Client Name", "Contact Type", "Last Contact Date", "Notes", "Status"],
+    "Client sheet"
+  );
+
+  const colClientID = clientHeaders["Client ID"];
+  const colClientName = clientHeaders["Client Name"];
+  const colClientContactType = clientHeaders["Contact Type"];
+  const colClientLastContact = clientHeaders["Last Contact Date"];
+  const colClientAssigned = clientHeaders["Assigned"];
+  const colClientNotes = clientHeaders["Notes"];
+  const colClientStatus = clientHeaders["Status"];
+  const colNextFollowUp = clientHeaders["Next Follow-up Date"];
+
+  const clientRow = findRowByValueInColumn_(clientSheet, colClientID, clientID);
+  if (!clientRow) {
+    SpreadsheetApp.getUi().alert("Client not found in Client sheet for Client ID: " + clientID);
+    return;
+  }
+
+  const existingClientName = String(clientSheet.getRange(clientRow, colClientName).getValue() || "").trim();
+  if (existingClientName && clientName && existingClientName !== clientName) {
+    Logger.log(
+      "COA Client Name mismatch. Using Client sheet value. COA: " +
+      clientName + " | Client: " + existingClientName
+    );
+  }
+
+  clientSheet.getRange(clientRow, colClientNotes).setValue(coaNotes);
+
+  if (coaContactType) {
+    clientSheet.getRange(clientRow, colClientContactType).setValue(coaContactType);
+  }
+
+  if (colClientAssigned && coaAssigned) {
+    clientSheet.getRange(clientRow, colClientAssigned).setValue(coaAssigned);
+  }
+
+  clientSheet
+    .getRange(clientRow, colClientLastContact)
+    .setValue(stripTime_(completedDate))
+    .setNumberFormat("mm/dd/yyyy");
+
+  const finalClientName = String(clientSheet.getRange(clientRow, colClientName).getValue() || "").trim();
+  const finalContactType = String(clientSheet.getRange(clientRow, colClientContactType).getValue() || "").trim();
+  const finalNotes = String(clientSheet.getRange(clientRow, colClientNotes).getValue() || "").trim();
+  const finalLastContact = clientSheet.getRange(clientRow, colClientLastContact).getValue();
+  const finalStatus = String(clientSheet.getRange(clientRow, colClientStatus).getValue() || "").trim();
+  const finalAssigned = colClientAssigned ? clientSheet.getRange(clientRow, colClientAssigned).getValue() : "";
+
+  const quotationTaskMeta = extractQuotationTaskMeta_(coaNotes);
+  let emailThreadId = "";
+
+  if (quotationTaskMeta && quotationTaskMeta.mode === "INITIAL_REQUEST") {
+    emailThreadId = promptForEmailThreadId_(quotationTaskMeta.provider, finalClientName || clientName);
+
+    if (!emailThreadId) {
+      sheet.getRange(row, colDateCompleted).clearContent();
+      SpreadsheetApp.getActive().toast(
+        "COA completion stopped. Email Thread ID is required.",
+        "Strata CRM",
+        5
+      );
+      return;
+    }
+  }
+
+  if (quotationTaskMeta) {
+    stampQuotationEmailDetails_(
+      clientID,
+      quotationTaskMeta.provider,
+      completedDate,
+      emailThreadId,
+      quotationTaskMeta.mode
+    );
+  }
+
+  if (confirmAppendClientSummaryHistory_(finalClientName, finalContactType, finalNotes, finalLastContact)) {
+    appendClientSummaryHistoryFromClientRow_(clientRow);
+  } else {
+    SpreadsheetApp.getActive().toast(
+      "COA completed, but latest update was not saved to ClientSummary.",
+      "Strata CRM",
+      4
+    );
+  }
+
+  const nextFollowUpRaw = colNextFollowUp ? clientSheet.getRange(clientRow, colNextFollowUp).getValue() : null;
+  const followUpDate = (nextFollowUpRaw instanceof Date && !isNaN(nextFollowUpRaw)) ? nextFollowUpRaw : null;
+
+  if (!isClosedStatus_(finalStatus) && followUpDate) {
+    queuePendingCOA_(followUpDate, clientID, finalClientName, finalContactType, finalAssigned, "");
+  } else {
+    archiveAllPendingCOAForClient_(clientID);
+  }
+
+  sheet.deleteRow(row);
+
+  let toastMessage = "COA completed. Client updated, ClientSummary handled, and COA row deleted.";
+  if (quotationTaskMeta) {
+    if (quotationTaskMeta.mode === "INITIAL_REQUEST") {
+      toastMessage = "COA completed. Client updated and quotation Initial Email Sent stamped.";
+    } else {
+      toastMessage = "COA completed. Client updated and quotation Follow-up Date stamped.";
+    }
+  }
+
+  SpreadsheetApp.getActive().toast(
+    toastMessage,
+    "Strata CRM",
+    5
+  );
+}
+
+function isManualCOARow_(sheet, row, headers) {
+  const clientIdHeader = getExistingHeaderName_(headers, ["Client ID"]);
+  const clientNameHeader = getExistingHeaderName_(headers, ["Client Name"]);
+  const notesHeader = getExistingHeaderName_(headers, ["Notes", "Task"]);
+
+  const clientID = clientIdHeader
+    ? String(sheet.getRange(row, headers[clientIdHeader]).getValue() || "").trim()
+    : "";
+  const clientName = clientNameHeader
+    ? String(sheet.getRange(row, headers[clientNameHeader]).getValue() || "").trim()
+    : "";
+  const taskText = notesHeader
+    ? String(sheet.getRange(row, headers[notesHeader]).getValue() || "").trim()
+    : "";
+
+  if (!clientID && !clientName) return true;
+
+  return false;
+}
+
+function moveCOARowToMTaskHistory_(sourceSheet, sourceRow) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const historySheet = getSheetOrThrow_(ss, "MTaskHistory");
+
+  const sourceHeaders = getHeaderMap(sourceSheet, 1);
+  const sourceLastCol = sourceSheet.getLastColumn();
+  const sourceRowValues = sourceSheet.getRange(sourceRow, 1, 1, sourceLastCol).getValues()[0];
+
+  const targetLastCol = historySheet.getLastColumn();
+  const targetHeaderRow = historySheet.getRange(1, 1, 1, targetLastCol).getValues()[0];
+  const outputRow = new Array(targetLastCol).fill("");
+
+  for (let i = 0; i < targetHeaderRow.length; i++) {
+    const header = String(targetHeaderRow[i] || "").trim();
+    if (!header) continue;
+
+    const sourceCol = sourceHeaders[header];
+    if (sourceCol) {
+      outputRow[i] = sourceRowValues[sourceCol - 1];
+    }
+  }
+
+  const targetRow = getNextAppendRow_(historySheet);
+  historySheet.getRange(targetRow, 1, 1, targetLastCol).setValues([outputRow]);
+
+  sourceSheet.deleteRow(sourceRow);
+}
+
+/***********************
+  SAME-WORKBOOK TRANSFER
+************************/
+/***********************
+  SAME-WORKBOOK TRANSFER
+************************/
+function appendRowByMatchingHeaders_(sourceSheet, sourceRow, targetSheetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const targetSheet = getSheetOrThrow_(ss, targetSheetName);
+
+  const sourceHeaders = getHeaderMap(sourceSheet, 1);
+  const sourceLastCol = sourceSheet.getLastColumn();
+  const sourceRowValues = sourceSheet.getRange(sourceRow, 1, 1, sourceLastCol).getValues()[0];
+
+  const targetLastCol = targetSheet.getLastColumn();
+  const targetHeaderRow = targetSheet.getRange(1, 1, 1, targetLastCol).getValues()[0];
+
+  const outputRow = new Array(targetLastCol).fill("");
+
+  for (let i = 0; i < targetHeaderRow.length; i++) {
+    const header = String(targetHeaderRow[i] || "").trim();
+    if (!header) continue;
+
+    const sourceCol = sourceHeaders[header];
+    if (sourceCol) {
+      outputRow[i] = sourceRowValues[sourceCol - 1];
+    }
+  }
+
+  const targetRow = targetSheet.getLastRow() + 1;
+  targetSheet.getRange(targetRow, 1, 1, targetLastCol).setValues([outputRow]);
+}
+
+/***********************
+  CLIENT SUMMARY UPSERT
+************************/
+function checkIfClientExistsInSummary_(clientID) {
+  if (!clientID) return false;
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const summarySheet = getSheetOrThrow_(ss, TARGET_CLIENT_SHEET_NAME);
+  const headers = getHeaderMap(summarySheet, 1);
+  const colClientID = headers["Client ID"];
+
+  if (!colClientID) {
+    throw new Error("Missing 'Client ID' header in " + TARGET_CLIENT_SHEET_NAME);
+  }
+
+  const foundRow = findRowByValueInColumn_(summarySheet, colClientID, clientID);
+  return foundRow ? foundRow : false;
+}
+
+function upsertClientSummaryFromClientRow_(sourceRow) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sourceSheet = getSheetOrThrow_(ss, SOURCE_CLIENT_SHEET_NAME);
+  const targetSheet = getSheetOrThrow_(ss, TARGET_CLIENT_SHEET_NAME);
+
+  const sourceHeaders = getHeaderMap(sourceSheet, 1);
+  const sourceClientIDCol = sourceHeaders["Client ID"];
+  if (!sourceClientIDCol) throw new Error("Missing 'Client ID' in source Client sheet.");
+
+  const clientID = String(sourceSheet.getRange(sourceRow, sourceClientIDCol).getValue() || "").trim();
+  if (!clientID) return;
+
+  const existingRow = checkIfClientExistsInSummary_(clientID);
+  const sourceValues = sourceSheet.getRange(sourceRow, 1, 1, sourceSheet.getLastColumn()).getValues()[0];
+  const targetLastCol = targetSheet.getLastColumn();
+  const targetHeaderRow = targetSheet.getRange(1, 1, 1, targetLastCol).getValues()[0];
+  const outputRow = new Array(targetLastCol).fill("");
+
+  for (let i = 0; i < targetHeaderRow.length; i++) {
+    const targetHeader = String(targetHeaderRow[i] || "").trim();
+    if (!targetHeader) continue;
+
+    const sourceCol = sourceHeaders[targetHeader];
+    if (sourceCol) {
+      outputRow[i] = sourceValues[sourceCol - 1];
+    }
+  }
+
+  if (existingRow) {
+    targetSheet.getRange(existingRow, 1, 1, targetLastCol).setValues([outputRow]);
+  } else {
+    const newRow = targetSheet.getLastRow() + 1;
+    targetSheet.getRange(newRow, 1, 1, targetLastCol).setValues([outputRow]);
+  }
+}
+
+
+/***********************
+  QUOTATION REQUEST FLOW
+************************/
+function promptQuotationRequestMeta_(providers) {
+  const providerList = providers.map(function(p) {
+    return normalizeProviderNameForDisplay_(p);
+  }).join(", ");
+
+  const dateResponse = Browser.inputBox(
+    "Quotation Request Activity Date",
+    "Enter the COA activity date for provider request(s): " + providerList +
+      "\nUse mm/dd/yyyy format.\nLeave blank to use today's date.",
+    Browser.Buttons.OK_CANCEL
+  );
+
+  if (dateResponse === "cancel") return null;
+
+  let activityDate = stripTime_(new Date());
+  const trimmedDateResponse = String(dateResponse || "").trim();
+
+  if (trimmedDateResponse) {
+    const parsedDate = parseUserDateString_(trimmedDateResponse);
+    if (!parsedDate) {
+      SpreadsheetApp.getUi().alert("Invalid date format. Please use mm/dd/yyyy.");
+      return promptQuotationRequestMeta_(providers);
+    }
+    activityDate = parsedDate;
+  }
+
+  const assignedResponse = Browser.inputBox(
+    "Assign COA Task",
+    "Enter assigned initials separated by commas.\nAllowed values: JMEG, JJDD, JRBP, RC",
+    Browser.Buttons.OK_CANCEL
+  );
+
+  if (assignedResponse === "cancel") return null;
+
+  const assigned = normalizeAssignedSelection_(assignedResponse);
+  if (!assigned) {
+    SpreadsheetApp.getUi().alert("Please enter at least one valid assigned value.");
+    return promptQuotationRequestMeta_(providers);
+  }
+
+  const ratesResponse = Browser.inputBox(
+    "Rates",
+    "Enter Rates for the new quotation row(s).\nAllowed values: SME or Corporate",
+    Browser.Buttons.OK_CANCEL
+  );
+
+  if (ratesResponse === "cancel") return null;
+
+  const rates = normalizeRateType_(ratesResponse);
+  if (!rates) {
+    SpreadsheetApp.getUi().alert("Please enter a valid Rates value: SME or Corporate.");
+    return promptQuotationRequestMeta_(providers);
+  }
+
+  const torSobResponse = Browser.inputBox(
+    "TOR & SOB (Y/N)",
+    "Enter Y if TOR & SOB is available, or N if not available.",
+    Browser.Buttons.OK_CANCEL
+  );
+
+  if (torSobResponse === "cancel") return null;
+
+  const torSob = normalizeYNValue_(torSobResponse);
+  if (!torSob) {
+    SpreadsheetApp.getUi().alert("Please enter a valid TOR & SOB value: Y or N.");
+    return promptQuotationRequestMeta_(providers);
+  }
+
+  return {
+    activityDate: activityDate,
+    assigned: assigned,
+    rates: rates,
+    torSob: torSob
+  };
+}
+
+function normalizeAssignedSelection_(value) {
+  const allowedLookup = {};
+  getCOAAssignedMasterOptions_().forEach(function(v) {
+    allowedLookup[String(v || "").trim().toUpperCase()] = true;
+  });
+
+  const cleaned = String(value || "")
+    .split(",")
+    .map(function(v) { return String(v || "").trim().toUpperCase(); })
+    .filter(function(v) { return v !== "" && allowedLookup[v]; });
+
+  const unique = [];
+  const seen = {};
+
+  cleaned.forEach(function(v) {
+    if (!seen[v]) {
+      seen[v] = true;
+      unique.push(v);
+    }
+  });
+
+  return unique.join(", ");
+}
+
+function buildQuotationRequestTask_(provider) {
+  return "Send a Franchise and Quotation Request to " + normalizeProviderNameForDisplay_(provider);
+}
+
+function createDirectCOATask_(activityDate, clientID, clientName, contactType, taskText, assigned) {
+  if (!(activityDate instanceof Date) || isNaN(activityDate)) {
+    throw new Error("Invalid Activity Date for COA task.");
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, COA_SHEET_NAME);
+  const headers = getHeaderMap(sheet, 1);
+
+  const activityDateHeader = getExistingHeaderName_(headers, ["Activity Date"]);
+  const clientIdHeader = getExistingHeaderName_(headers, ["Client ID"]);
+  const clientNameHeader = getExistingHeaderName_(headers, ["Client Name"]);
+  const contactTypeHeader = getExistingHeaderName_(headers, ["Contact Type"]);
+  const taskHeader = getExistingHeaderName_(headers, ["Task", "Notes"]);
+  const assignedHeader = getExistingHeaderName_(headers, ["Assigned"]);
+  const dateCompletedHeader = getExistingHeaderName_(headers, ["Date Completed"]);
+
+  const requiredHeaders = [
+    activityDateHeader,
+    clientIdHeader,
+    clientNameHeader,
+    contactTypeHeader,
+    taskHeader,
+    assignedHeader,
+    dateCompletedHeader
+  ];
+
+  for (let i = 0; i < requiredHeaders.length; i++) {
+    if (!requiredHeaders[i]) {
+      throw new Error("Missing required header in COA sheet.");
+    }
+  }
+
+  const hasDuplicate = hasOpenCOADuplicate_(sheet, headers, {
+    clientID: clientID,
+    clientName: clientName,
+    contactType: contactType,
+    task: taskText,
+    assigned: assigned
+  });
+
+  if (hasDuplicate) {
+    return false;
+  }
+
+  const newRow = getNextDataRow_(sheet);
+
+  sheet.getRange(newRow, headers[activityDateHeader]).setValue(activityDate).setNumberFormat("mm/dd/yyyy");
+  sheet.getRange(newRow, headers[clientIdHeader]).setValue(clientID);
+  sheet.getRange(newRow, headers[clientNameHeader]).setValue(clientName);
+  sheet.getRange(newRow, headers[contactTypeHeader]).setValue(contactType || "");
+  sheet.getRange(newRow, headers[taskHeader]).setValue(taskText || "");
+  sheet.getRange(newRow, headers[assignedHeader]).setValue(assigned || "");
+  sheet.getRange(newRow, headers[dateCompletedHeader]).clearContent();
+
+  return true;
+}
+
+
+function normalizeTaskKey_(task) {
+  return String(task || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function ensureQuotationRowForProvider_(clientID, clientName, provider, requestMeta) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const quotationSheet = getSheetOrThrow_(ss, SOURCE_QUOTATIONS_SHEET_NAME);
+  const qHeaders = getHeaderMap(quotationSheet, 1);
+
+  requireHeaders_(
+    qHeaders,
+    [
+      "Quote ID",
+      "Client ID",
+      "Client Name",
+      "Provider",
+      "Franchise Date",
+      "Franchise Ending Date",
+      "Initial Email Sent",
+      "Turnaround Time",
+      "Status",
+      "Date Released",
+      "Rates",
+      "TOR & SOB (Y/N)",
+      "Requests",
+      "Email Thread ID"
+    ],
+    "Quotations sheet"
+  );
+
+  const existingRow = findExistingQuotationRow_(quotationSheet, qHeaders, clientID, provider);
+  if (existingRow) {
+    if (requestMeta) {
+      quotationSheet.getRange(existingRow, qHeaders["Rates"]).setValue(requestMeta.rates || "");
+      quotationSheet.getRange(existingRow, qHeaders["TOR & SOB (Y/N)"]).setValue(requestMeta.torSob || "");
+      applyQuotationRowFormulas_(quotationSheet, qHeaders, existingRow);
+    }
+    return false;
+  }
+
+  const newRow = getNextDataRow_(quotationSheet, qHeaders, "Quote ID");
+  const totalCols = quotationSheet.getLastColumn();
+  const rowValues = new Array(totalCols).fill("");
+
+  rowValues[qHeaders["Quote ID"] - 1] = generateNextQuoteID(quotationSheet, qHeaders["Quote ID"]);
+  rowValues[qHeaders["Client ID"] - 1] = clientID;
+  rowValues[qHeaders["Client Name"] - 1] = clientName;
+  rowValues[qHeaders["Provider"] - 1] = normalizeProviderNameForDisplay_(provider);
+  rowValues[qHeaders["Rates"] - 1] = requestMeta && requestMeta.rates ? requestMeta.rates : "";
+  rowValues[qHeaders["TOR & SOB (Y/N)"] - 1] = requestMeta && requestMeta.torSob ? requestMeta.torSob : "";
+  rowValues[qHeaders["Requests"] - 1] = "";
+
+  quotationSheet.getRange(newRow, 1, 1, totalCols).setValues([rowValues]);
+  applyQuotationRowFormulas_(quotationSheet, qHeaders, newRow);
+
+  return true;
+}
+
+function applyQuotationRowFormulas_(quotationSheet, qHeaders, row) {
+  quotationSheet.getRange(row, qHeaders["Franchise Date"]).setNumberFormat("mm/dd/yyyy");
+  quotationSheet.getRange(row, qHeaders["Franchise Ending Date"]).setNumberFormat("mm/dd/yyyy");
+  quotationSheet.getRange(row, qHeaders["Initial Email Sent"]).setNumberFormat("mm/dd/yyyy");
+  quotationSheet.getRange(row, qHeaders["Turnaround Time"]).setNumberFormat("mm/dd/yyyy");
+  quotationSheet.getRange(row, qHeaders["Date Released"]).setNumberFormat("mm/dd/yyyy");
+
+  quotationSheet.getRange(row, qHeaders["Turnaround Time"])
+    .setFormulaR1C1(buildTurnaroundFormulaR1C1_(qHeaders));
+  quotationSheet.getRange(row, qHeaders["Status"])
+    .setFormulaR1C1(buildStatusFormulaR1C1_(qHeaders));
+}
+
+function generateDraftEmail() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+
+  if (!sheet || sheet.getName() !== SOURCE_QUOTATIONS_SHEET_NAME) {
+    SpreadsheetApp.getUi().alert("Please use the Quotations sheet to generate draft emails.");
+    return;
+  }
+
+  const range = sheet.getActiveRange();
+  if (!range) {
+    SpreadsheetApp.getUi().alert("Please select a quotation row first.");
+    return;
+  }
+
+  const row = range.getRow();
+  if (row <= 1) {
+    SpreadsheetApp.getUi().alert("Please select a quotation row below the header.");
+    return;
+  }
+
+  const headers = getHeaderMap(sheet, 1);
+
+  requireHeaders_(
+    headers,
+    [
+      "Quote ID",
+      "Client ID",
+      "Client Name",
+      "Provider",
+      "Rates",
+      "TOR & SOB (Y/N)",
+      "Requests",
+      "Initial Email Sent",
+      "Email Thread ID",
+      "Status",
+      "Date Released",
+      "Follow-up Date"
+    ],
+    "Quotations sheet"
+  );
+
+  const clientID = String(sheet.getRange(row, headers["Client ID"]).getValue() || "").trim();
+  const clientName = String(sheet.getRange(row, headers["Client Name"]).getValue() || "").trim();
+  const provider = normalizeProviderNameForDisplay_(sheet.getRange(row, headers["Provider"]).getValue());
+  const rateType = normalizeRateType_(sheet.getRange(row, headers["Rates"]).getValue());
+  const requests = String(sheet.getRange(row, headers["Requests"]).getValue() || "").trim();
+  const status = String(sheet.getRange(row, headers["Status"]).getValue() || "").trim();
+  const emailThreadId = String(sheet.getRange(row, headers["Email Thread ID"]).getValue() || "").trim();
+  const initialEmailSent = sheet.getRange(row, headers["Initial Email Sent"]).getValue();
+  const followUpDate = sheet.getRange(row, headers["Follow-up Date"]).getValue();
+  const dateReleased = sheet.getRange(row, headers["Date Released"]).getValue();
+
+  if (!clientID) {
+    SpreadsheetApp.getUi().alert("The selected quotation row has no Client ID.");
+    return;
+  }
+
+  if (!clientName) {
+    SpreadsheetApp.getUi().alert("The selected quotation row has no Client Name.");
+    return;
+  }
+
+  if (!provider) {
+    SpreadsheetApp.getUi().alert("The selected quotation row has no Provider.");
+    return;
+  }
+
+  if (dateReleased instanceof Date && !isNaN(dateReleased)) {
+    SpreadsheetApp.getUi().alert("This quotation already has a Date Released. Draft generation is blocked.");
+    return;
+  }
+
+  const followUpType = getQuotationFollowUpTypeFromStatus_(status);
+  const providerMeta = getProviderEmailMeta_(provider);
+
+  if (followUpType) {
+    if (!(initialEmailSent instanceof Date) || isNaN(initialEmailSent)) {
+      SpreadsheetApp.getUi().alert("Initial Email Sent is required before generating a follow-up draft.");
+      return;
+    }
+
+    const lastCommunicationDate = getLastCommunicationDate_(followUpDate, initialEmailSent);
+    const body = buildQuotationFollowUpDraftEmailBody_({
+      followUpType: followUpType,
+      clientName: clientName,
+      provider: provider,
+      honorifics: providerMeta.honorifics,
+      contactPerson: providerMeta.contactPerson,
+      lastCommunicationDate: lastCommunicationDate
+    });
+    const followUpSubject = buildQuotationFollowUpSubject_(followUpType, clientName);
+
+    GmailApp.createDraft(providerMeta.email, followUpSubject, body, {
+      cc: providerMeta.cc || ""
+    });
+
+    SpreadsheetApp.getActive().toast(
+      "Follow-up Gmail draft created for " + clientName + " - " + provider + ".",
+      "Strata CRM",
+      5
+    );
+    return;
+  }
+
+  if (!rateType) {
+    SpreadsheetApp.getUi().alert("Please enter Rates as SME or Corporate before generating the draft.");
+    return;
+  }
+
+  const withTorSob = getQuotationTORFlag_(sheet, headers, row);
+  const specialRequestsBlock = buildSpecialRequestsBlock_(requests);
+  const subject = "Request for Quotation – " + clientName + " (Franchise Application Attached)";
+  const body = buildQuotationDraftEmailBody_({
+    clientName: clientName,
+    rateType: rateType,
+    withTorSob: withTorSob,
+    specialRequestsBlock: specialRequestsBlock,
+    honorifics: providerMeta.honorifics,
+    contactPerson: providerMeta.contactPerson
+  });
+
+  GmailApp.createDraft(providerMeta.email, subject, body, {
+    cc: providerMeta.cc || ""
+  });
+
+  SpreadsheetApp.getActive().toast(
+    "Gmail draft created for " + clientName + " - " + provider + ".",
+    "Strata CRM",
+    5
+  );
+}
+
+
+function scanQuotationFollowUpsToCOA() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, SOURCE_QUOTATIONS_SHEET_NAME);
+  const headers = getHeaderMap(sheet, 1);
+
+  requireHeaders_(
+    headers,
+    [
+      "Client ID",
+      "Client Name",
+      "Provider",
+      "Status",
+      "Date Released"
+    ],
+    "Quotations sheet"
+  );
+
+  const activityDate = promptForQuotationFollowUpActivityDate_();
+  if (!activityDate) return;
+
+  const assigned = promptForQuotationFollowUpAssigned_();
+  if (!assigned) return;
+
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) {
+    SpreadsheetApp.getUi().alert("No quotation rows found.");
+    return;
+  }
+
+  const data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  let eligibleCount = 0;
+  let createdCount = 0;
+  let duplicateSkippedCount = 0;
+  let releasedSkippedCount = 0;
+
+  for (let i = 0; i < data.length; i++) {
+    const clientID = String(data[i][headers["Client ID"] - 1] || "").trim();
+    const clientName = String(data[i][headers["Client Name"] - 1] || "").trim();
+    const provider = normalizeProviderNameForDisplay_(data[i][headers["Provider"] - 1]);
+    const status = String(data[i][headers["Status"] - 1] || "").trim();
+    const dateReleased = data[i][headers["Date Released"] - 1];
+
+    if (!clientID || !clientName || !provider) continue;
+
+    if (dateReleased instanceof Date && !isNaN(dateReleased)) {
+      releasedSkippedCount++;
+      continue;
+    }
+
+    const taskText = buildQuotationFollowUpTaskByStatus_(status, provider);
+    if (!taskText) continue;
+
+    eligibleCount++;
+
+    if (createDirectCOATask_(
+      activityDate,
+      clientID,
+      clientName,
+      "Email",
+      taskText,
+      assigned
+    )) {
+      createdCount++;
+    } else {
+      duplicateSkippedCount++;
+    }
+  }
+
+  SpreadsheetApp.getUi().alert(
+    "Quotation follow-up scan completed.\n\n" +
+    "Assigned: " + assigned + "\n" +
+    "Eligible quotation(s): " + eligibleCount + "\n" +
+    "COA task(s) created: " + createdCount + "\n" +
+    "Duplicate open COA task(s) skipped: " + duplicateSkippedCount + "\n" +
+    "Released quotation(s) skipped: " + releasedSkippedCount
+  );
+}
+
+
+/***********************
+  AUTO QUOTATION FOLLOW-UP SCAN
+************************/
+function autoScanQuotationFollowUps_1AM() {
+  const assigned = "RC";
+  const activityDate = stripTime_(new Date());
+  const result = runQuotationFollowUpScan_(activityDate, assigned);
+
+  Logger.log(
+    "Auto quotation follow-up scan completed. " +
+    "Assigned: " + assigned +
+    " | Activity Date: " + Utilities.formatDate(activityDate, Session.getScriptTimeZone(), "MM/dd/yyyy") +
+    " | Eligible: " + result.eligibleCount +
+    " | Created: " + result.createdCount +
+    " | Duplicate skipped: " + result.duplicateSkippedCount +
+    " | Released skipped: " + result.releasedSkippedCount
+  );
+}
+
+function setupDailyQuotationFollowUpAutoScan_1AM() {
+  removeDailyQuotationFollowUpAutoScan_1AM(false);
+
+  ScriptApp.newTrigger("autoScanQuotationFollowUps_1AM")
+    .timeBased()
+    .everyDays(1)
+    .atHour(1)
+    .create();
+
+  SpreadsheetApp.getUi().alert(
+    "Auto quotation follow-up scan has been set up.\n\n" +
+    "Schedule: Daily between 1:00 AM and 2:00 AM\n" +
+    "Activity Date: Today\n" +
+    "Assigned: RC"
+  );
+}
+
+function removeDailyQuotationFollowUpAutoScan_1AM(showAlert) {
+  const shouldShowAlert = showAlert !== false;
+  const triggers = ScriptApp.getProjectTriggers();
+  let deletedCount = 0;
+
+  triggers.forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === "autoScanQuotationFollowUps_1AM") {
+      ScriptApp.deleteTrigger(trigger);
+      deletedCount++;
+    }
+  });
+
+  Logger.log("Removed " + deletedCount + " auto quotation follow-up trigger(s).");
+
+  if (shouldShowAlert) {
+    SpreadsheetApp.getUi().alert(
+      deletedCount > 0
+        ? "Auto quotation follow-up scan trigger removed."
+        : "No auto quotation follow-up scan trigger was found."
+    );
+  }
+}
+
+function runQuotationFollowUpScan_(activityDate, assigned) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, SOURCE_QUOTATIONS_SHEET_NAME);
+  const headers = getHeaderMap(sheet, 1);
+
+  requireHeaders_(
+    headers,
+    [
+      "Client ID",
+      "Client Name",
+      "Provider",
+      "Status",
+      "Date Released"
+    ],
+    "Quotations sheet"
+  );
+
+  const result = {
+    eligibleCount: 0,
+    createdCount: 0,
+    duplicateSkippedCount: 0,
+    releasedSkippedCount: 0
+  };
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return result;
+
+  const data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+
+  for (let i = 0; i < data.length; i++) {
+    const clientID = String(data[i][headers["Client ID"] - 1] || "").trim();
+    const clientName = String(data[i][headers["Client Name"] - 1] || "").trim();
+    const provider = normalizeProviderNameForDisplay_(data[i][headers["Provider"] - 1]);
+    const status = String(data[i][headers["Status"] - 1] || "").trim();
+    const dateReleased = data[i][headers["Date Released"] - 1];
+
+    if (!clientID || !clientName || !provider) continue;
+
+    if (dateReleased instanceof Date && !isNaN(dateReleased)) {
+      result.releasedSkippedCount++;
+      continue;
+    }
+
+    const taskText = buildQuotationFollowUpTaskByStatus_(status, provider);
+    if (!taskText) continue;
+
+    result.eligibleCount++;
+
+    if (createDirectCOATask_(
+      activityDate,
+      clientID,
+      clientName,
+      "Email",
+      taskText,
+      assigned
+    )) {
+      result.createdCount++;
+    } else {
+      result.duplicateSkippedCount++;
+    }
+  }
+
+  return result;
+}
+
+
+function promptForQuotationFollowUpActivityDate_() {
+  const response = Browser.inputBox(
+    "Quotation Follow-Up Activity Date",
+    "Enter the activity date for the quotation follow-up COA task(s) in mm/dd/yyyy format.\nLeave blank to use today's date.",
+    Browser.Buttons.OK_CANCEL
+  );
+
+  if (response === "cancel") return null;
+
+  const trimmed = String(response || "").trim();
+  if (!trimmed) {
+    return stripTime_(new Date());
+  }
+
+  const parsed = parseUserDateString_(trimmed);
+  if (!parsed) {
+    SpreadsheetApp.getUi().alert("Invalid date format. Please use mm/dd/yyyy.");
+    return promptForQuotationFollowUpActivityDate_();
+  }
+
+  return parsed;
+}
+
+
+function promptForQuotationFollowUpAssigned_() {
+  const response = Browser.inputBox(
+    "Quotation Follow-Up Assigned",
+    "Enter assigned initials separated by commas.\nAllowed values: JMEG, JJDD, JRBP, RC",
+    Browser.Buttons.OK_CANCEL
+  );
+
+  if (response === "cancel") return null;
+
+  const assigned = normalizeAssignedSelection_(response);
+  if (!assigned) {
+    SpreadsheetApp.getUi().alert("Please enter at least one valid assigned value.");
+    return promptForQuotationFollowUpAssigned_();
+  }
+
+  return assigned;
+}
+
+
+function getQuotationFollowUpTypeFromStatus_(status) {
+  const normalized = normalizeQuotationStatus_(status);
+
+  if (!normalized) return "";
+
+  const hasNoFranchise = normalized.indexOf("no franchise approval") !== -1;
+  const hasFollowUp = normalized.indexOf("for follow up") !== -1;
+  const hasOverdue = normalized.indexOf("overdue") !== -1;
+
+  if (hasNoFranchise && (hasFollowUp || hasOverdue || normalized === "no franchise approval")) {
+    return "FRANCHISE_AND_QUOTATION";
+  }
+
+  if (hasFollowUp || hasOverdue) {
+    return "QUOTATION";
+  }
+
+  return "";
+}
+
+function buildQuotationFollowUpTaskByStatus_(status, provider) {
+  const normalized = normalizeQuotationStatus_(status);
+  const cleanProvider = normalizeProviderNameForDisplay_(provider);
+
+  if (normalized === "no email sent") {
+    return "Send a Franchise and Quotation Request to " + cleanProvider;
+  }
+
+  const type = getQuotationFollowUpTypeFromStatus_(status);
+
+  if (type === "FRANCHISE_AND_QUOTATION") {
+    return "Send Follow-up email on Franchise approval and Quotation to " + cleanProvider;
+  }
+
+  if (type === "QUOTATION") {
+    return "Send a Follow-up email on Quotation to " + cleanProvider;
+  }
+
+  return "";
+}
+
+function normalizeQuotationStatus_(status) {
+  return String(status || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s*-\s*/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function buildQuotationFollowUpSubject_(followUpType, clientName) {
+  const cleanClientName = String(clientName || "").trim();
+
+  if (String(followUpType || "").trim() === "FRANCHISE_AND_QUOTATION") {
+    return "Follow-up on Franchise Approval and Quotation – " + cleanClientName;
+  }
+
+  return "Follow-up on Quotation – " + cleanClientName;
+}
+
+function buildQuotationFollowUpDraftEmailBody_(params) {
+  const greeting = buildEmailGreeting_(params.honorifics, params.contactPerson);
+  const clientName = String(params.clientName || "").trim();
+  const type = String(params.followUpType || "").trim();
+  const lastCommunicationDate = params.lastCommunicationDate instanceof Date && !isNaN(params.lastCommunicationDate)
+    ? Utilities.formatDate(params.lastCommunicationDate, Session.getScriptTimeZone(), "MM/dd/yyyy")
+    : "";
+
+  const lines = [
+    greeting,
+    "",
+    "Good day.",
+    "",
+    "We would like to follow up on our quotation request for " + clientName + "."
+  ];
+
+  if (lastCommunicationDate) {
+    lines.push("");
+    lines.push("Our last communication regarding this request was on " + lastCommunicationDate + ".");
+  }
+
+  if (type === "FRANCHISE_AND_QUOTATION") {
+    lines.push("");
+    lines.push("As of today, we have not yet received confirmation on the franchise approval, as well as the quotation.");
+    lines.push("");
+    lines.push("May we kindly request for an update on the status of the franchise approval and quotation, if already available?");
+  } else {
+    lines.push("");
+    lines.push("As of today, we have not yet received the quotation and would appreciate any update you can provide regarding its status.");
+  }
+
+  lines.push("");
+  lines.push("If there are any pending requirements or clarifications needed from our end, please feel free to let us know and we will be glad to assist immediately.");
+  lines.push("");
+  lines.push("We appreciate your support and look forward to your update.");
+  lines.push("");
+  lines.push("Thank you very much.");
+  lines.push("");
+  lines.push("Best regards,");
+  lines.push("[Your Name]");
+  lines.push("Strata Consultancy Group, Inc.");
+
+  return lines.join("\n");
+}
+
+function getLastCommunicationDate_(followUpDate, initialEmailSent) {
+  if (followUpDate instanceof Date && !isNaN(followUpDate)) {
+    return followUpDate;
+  }
+
+  if (initialEmailSent instanceof Date && !isNaN(initialEmailSent)) {
+    return initialEmailSent;
+  }
+
+  return null;
+}
+
+function extractQuotationTaskMeta_(taskText) {
+  const text = normalizeProviderNameForDisplay_(taskText);
+
+  const definitions = [
+    {
+      prefix: "Send a Franchise and Quotation Request to ",
+      providerField: "provider",
+      providerValueType: "display",
+      mode: "INITIAL_REQUEST"
+    },
+    {
+      prefix: "Send Follow-up email on Franchise approval and Quotation to ",
+      providerField: "provider",
+      providerValueType: "display",
+      mode: "FOLLOW_UP_FRANCHISE_AND_QUOTATION"
+    },
+    {
+      prefix: "Send a Follow-up email on Quotation to ",
+      providerField: "provider",
+      providerValueType: "display",
+      mode: "FOLLOW_UP_QUOTATION"
+    }
+  ];
+
+  for (let i = 0; i < definitions.length; i++) {
+    const def = definitions[i];
+    if (text.indexOf(def.prefix) === 0) {
+      return {
+        mode: def.mode,
+        provider: normalizeProviderNameForDisplay_(text.substring(def.prefix.length))
+      };
+    }
+  }
+
+  return null;
+}
+
+function getProviderEmailMeta_(provider) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, "ProviderEmails");
+  const headers = getHeaderMap(sheet, 1);
+
+  requireHeaders_(
+    headers,
+    ["Provider", "Email", "Honorifics", "Contact Person", "CC"],
+    "ProviderEmails sheet"
+  );
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    throw new Error("ProviderEmails sheet has no data rows.");
+  }
+
+  const data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  const targetProvider = normalizeProviderNameForMatch_(provider);
+
+  for (let i = 0; i < data.length; i++) {
+    const rowProvider = normalizeProviderNameForMatch_(data[i][headers["Provider"] - 1]);
+    if (rowProvider !== targetProvider) continue;
+
+    const email = String(data[i][headers["Email"] - 1] || "").trim();
+    const honorifics = String(data[i][headers["Honorifics"] - 1] || "").trim();
+    const contactPerson = String(data[i][headers["Contact Person"] - 1] || "").trim();
+    const cc = String(data[i][headers["CC"] - 1] || "").trim();
+
+    if (!email) {
+      throw new Error("Provider email is blank for provider: " + provider);
+    }
+
+    return {
+      email: email,
+      honorifics: honorifics,
+      contactPerson: contactPerson,
+      cc: cc
+    };
+  }
+
+  throw new Error("Provider not found in ProviderEmails sheet: " + provider);
+}
+
+function buildEmailGreeting_(honorifics, contactPerson) {
+  const cleanHonorifics = String(honorifics || "").trim();
+  const cleanContactPerson = String(contactPerson || "").trim();
+
+  if (cleanHonorifics && cleanContactPerson) {
+    return "Hi " + cleanHonorifics + " " + cleanContactPerson + ",";
+  }
+
+  return "Hi Ma’am/Sir,";
+}
+
+
+function buildQuotationDraftEmailBody_(params) {
+  const clientName = params.clientName;
+  const rateType = params.rateType;
+  const withTorSob = !!params.withTorSob;
+  const specialRequestsBlock = String(params.specialRequestsBlock || "").trim();
+  const greeting = buildEmailGreeting_(params.honorifics, params.contactPerson);
+
+  const lines = [
+    greeting,
+    "",
+    "Good day.",
+    "",
+    "Attached herewith is the Request for Franchise Form for " + clientName + ".",
+    "",
+    "We would like to formally request a quotation for " + clientName + " under your " + rateType + " rates.",
+    "",
+    "Attached to this email are the following documents for your reference:",
+    "",
+    "• The masterlist, representing the total population to be insured under the proposed plan"
+  ];
+
+  if (withTorSob) {
+    lines.push("• The Schedule of Benefits (SOB) together with the Terms of Reference (TOR), which may serve as the basis for the requested plan design and coverage levels");
+  }
+
+  lines.push("");
+  lines.push("Please note that the attached documents contain confidential personal and dependent information. We kindly request that all data shared be handled in strict compliance with applicable data privacy and confidentiality standards, and be used solely for quotation evaluation and proposal preparation.");
+  lines.push("");
+
+  if (withTorSob) {
+    lines.push("If possible, we would highly appreciate it if you could match or improve upon the current provider’s rates, while maintaining the same or enhanced level of benefits based on the attached reference.");
+    lines.push("");
+    lines.push("Kindly use the benefit structure outlined in the SOB and TOR as the basis for the requested coverage, including applicable nationwide and VisMin access tiers, room accommodations, and maximum benefit limits.");
+  } else {
+    lines.push("If possible, we would highly appreciate it if you could provide your most competitive quotation based on the available data.");
+  }
+
+  if (specialRequestsBlock) {
+    lines.push("");
+    lines.push(specialRequestsBlock);
+  }
+
+  lines.push("");
+  lines.push("We look forward to receiving your quotation at your earliest convenience.");
+  lines.push("");
+  lines.push("Thank you very much.");
+  lines.push("");
+  lines.push("Best regards,");
+  lines.push("[Your Name]");
+  lines.push("Strata Consultancy Group, Inc.");
+
+  return lines.join("\n");
+}
+
+function buildSpecialRequestsBlock_(requestsText) {
+  const items = String(requestsText || "")
+    .split(",")
+    .map(function(v) { return String(v || "").trim(); })
+    .filter(function(v) { return v !== ""; });
+
+  if (items.length === 0) return "";
+
+  const bullets = items.map(function(item) {
+    return "• " + item;
+  });
+
+  return [
+    "In addition, we would like to request consideration for the following, if available:",
+    "",
+    bullets.join("\n")
+  ].join("\n");
+}
+
+function normalizeRateType_(value) {
+  const text = String(value || "").trim().toLowerCase();
+
+  if (!text) return "";
+  if (text === "sme") return "SME";
+  if (text === "corporate") return "Corporate";
+
+  return "";
+}
+function normalizeYNValue_(value) {
+  const text = String(value || "").trim().toUpperCase();
+  if (text === "Y" || text === "YES") return "Y";
+  if (text === "N" || text === "NO") return "N";
+  return "";
+}
+
+
+function getQuotationTORFlag_(sheet, headers, row) {
+  const torHeader = getExistingHeaderName_(headers, [
+    "TOR & SOB (Y/N)",
+    "TOR/SOB",
+    "With TOR/SOB",
+    "TOR SOB",
+    "TOR & SOB",
+    "Has TOR/SOB"
+  ]);
+
+  if (!torHeader) return false;
+
+  const raw = String(sheet.getRange(row, headers[torHeader]).getDisplayValue() || "").trim().toLowerCase();
+  return ["yes", "y", "true", "with", "provided", "1"].indexOf(raw) !== -1;
+}
+
+function extractProviderFromQuotationRequestTask_(taskText) {
+  const meta = extractQuotationTaskMeta_(taskText);
+  return meta ? meta.provider : "";
+}
+
+function stampQuotationEmailDetails_(clientID, provider, completedDate, emailThreadId, mode) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const quotationSheet = getSheetOrThrow_(ss, SOURCE_QUOTATIONS_SHEET_NAME);
+  const qHeaders = getHeaderMap(quotationSheet, 1);
+
+  requireHeaders_(
+    qHeaders,
+    [
+      "Client ID",
+      "Provider",
+      "Initial Email Sent",
+      "Turnaround Time",
+      "Status",
+      "Date Released",
+      "Email Thread ID",
+      "Follow-up Date"
+    ],
+    "Quotations sheet"
+  );
+
+  const row = findExistingQuotationRow_(quotationSheet, qHeaders, clientID, provider);
+  if (!row) {
+    throw new Error("Matching quotation row not found for client " + clientID + " and provider " + provider + ".");
+  }
+
+  const normalizedMode = String(mode || "").trim();
+
+  if (normalizedMode === "INITIAL_REQUEST") {
+    quotationSheet
+      .getRange(row, qHeaders["Initial Email Sent"])
+      .setValue(stripTime_(completedDate))
+      .setNumberFormat("mm/dd/yyyy");
+
+    if (emailThreadId) {
+      quotationSheet
+        .getRange(row, qHeaders["Email Thread ID"])
+        .setValue(String(emailThreadId || "").trim());
+    }
+  } else if (
+    normalizedMode === "FOLLOW_UP_QUOTATION" ||
+    normalizedMode === "FOLLOW_UP_FRANCHISE_AND_QUOTATION"
+  ) {
+    quotationSheet
+      .getRange(row, qHeaders["Follow-up Date"])
+      .setValue(stripTime_(completedDate))
+      .setNumberFormat("mm/dd/yyyy");
+  }
+
+  applyQuotationRowFormulas_(quotationSheet, qHeaders, row);
+}
+
+function promptForEmailThreadId_(provider, clientName) {
+  const response = Browser.inputBox(
+    "Email Thread ID Required",
+    "This task is an email-sending task for " + provider + (clientName ? " / " + clientName : "") +
+      ".\n\nPlease enter the Email Thread ID before completing this COA task.",
+    Browser.Buttons.OK_CANCEL
+  );
+
+  if (response === "cancel") return null;
+
+  const threadId = String(response || "").trim();
+  if (!threadId) {
+    SpreadsheetApp.getUi().alert("Email Thread ID is required for email-sending tasks.");
+    return null;
+  }
+
+  return threadId;
+}
+
+/***********************
+  HELPERS
+************************/
+function getSheetOrThrow_(ss, sheetName) {
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    throw new Error("Sheet not found: " + sheetName);
+  }
+  return sheet;
+}
+
+function requireHeaders_(headers, requiredHeaders, label) {
+  for (let i = 0; i < requiredHeaders.length; i++) {
+    if (!headers[requiredHeaders[i]]) {
+      throw new Error("Missing header in " + label + ": " + requiredHeaders[i]);
+    }
+  }
+}
+
+function getHeaderMap(sheet, headerRow) {
+  const lastCol = sheet.getLastColumn();
+  const headerValues = sheet.getRange(headerRow, 1, 1, lastCol).getValues()[0];
+  const map = {};
+
+  headerValues.forEach(function(header, index) {
+    if (header && header.toString().trim() !== "") {
+      map[header.toString().trim()] = index + 1;
+    }
+  });
+
+  return map;
+}
+
+function getExistingHeaderName_(headers, names) {
+  for (let i = 0; i < names.length; i++) {
+    if (headers[names[i]]) return names[i];
+  }
+  return "";
+}
+
+function getCellValue_(sheet, row, col) {
+  if (!col) return "";
+  return sheet.getRange(row, col).getValue() || "";
+}
+
+function getCellDisplayValue_(sheet, row, col) {
+  if (!col) return "";
+  return sheet.getRange(row, col).getDisplayValue() || "";
+}
+
+function ensureClientIDOnRow_(sheet, row, clientIDCol) {
+  const clientIDCell = sheet.getRange(row, clientIDCol);
+  let clientID = String(clientIDCell.getValue() || "").trim();
+
+  if (!clientID) {
+    clientID = generateNextClientID(sheet, clientIDCol);
+    clientIDCell.setValue(clientID);
+  }
+
+  return clientID;
+}
+
+function generateNextClientID(sheet, clientIDCol) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return "C-0001";
+
+  const values = sheet.getRange(2, clientIDCol, lastRow - 1, 1).getDisplayValues().flat();
+  let maxNum = 0;
+
+  values.forEach(function(id) {
+    const text = String(id || "").trim();
+    const match = text.match(/^C-(\d+)$/i);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxNum) maxNum = num;
+    }
+  });
+
+  return "C-" + String(maxNum + 1).padStart(4, "0");
+}
+
+function parseIsoDateInput_(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return (date instanceof Date && !isNaN(date)) ? date : null;
+}
+
+function formatDateForInput(value) {
+  if (!(value instanceof Date) || isNaN(value)) return "";
+  return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+}
+
+function getValidationOptions(sheet, column, sampleRow) {
+  if (!column) return [];
+
+  const rule = sheet.getRange(sampleRow, column).getDataValidation();
+  if (!rule) return [];
+
+  const criteria = rule.getCriteriaType();
+  const args = rule.getCriteriaValues();
+
+  if (criteria === SpreadsheetApp.DataValidationCriteria.VALUE_IN_LIST) {
+    return args[0] || [];
+  }
+
+  if (criteria === SpreadsheetApp.DataValidationCriteria.VALUE_IN_RANGE) {
+    const range = args[0];
+    const values = range.getValues().flat().filter(String);
+    return [...new Set(values)];
+  }
+
+  return [];
+}
+
+function stripTime_(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function moveToNextWeekday(date) {
+  const result = stripTime_(new Date(date));
+  const day = result.getDay();
+
+  if (day === 6) {
+    result.setDate(result.getDate() + 2);
+  } else if (day === 0) {
+    result.setDate(result.getDate() + 1);
+  }
+
+  return result;
+}
+
+function addWorkingDaysExcludingStart_(startDate, daysToAdd) {
+  let result = stripTime_(new Date(startDate));
+  let added = 0;
+
+  while (added < daysToAdd) {
+    result.setDate(result.getDate() + 1);
+    const day = result.getDay();
+    if (day !== 0 && day !== 6) {
+      added++;
+    }
+  }
+
+  return result;
+}
+
+function findRowByValueInColumn_(sheet, col, value) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+
+  const values = sheet.getRange(2, col, lastRow - 1, 1).getValues().flat();
+
+  for (let i = 0; i < values.length; i++) {
+    if (String(values[i] || "").trim() === String(value || "").trim()) {
+      return i + 2;
+    }
+  }
+
+  return null;
+}
+
+function buildCOACompletionNote_(completedDateText, contactType, taskText) {
+  const parts = [];
+
+  if (completedDateText) {
+    parts.push("[" + completedDateText + "]");
+  }
+
+  if (contactType) {
+    parts.push(contactType);
+  }
+
+  let prefix = parts.join(" - ");
+  if (prefix) {
+    prefix += ": ";
+  }
+
+  return prefix + String(taskText || "").trim();
+}
+
+function mergeClientNotes_(existingNotes, newNote) {
+  const oldText = String(existingNotes || "").trim();
+  const addText = String(newNote || "").trim();
+
+  if (!oldText) return addText;
+  if (!addText) return oldText;
+
+  const oldLines = oldText.split(/\r?\n/).map(function(line) {
+    return String(line || "").trim();
+  });
+
+  if (oldLines.indexOf(addText) !== -1) {
+    return oldText;
+  }
+
+  return oldText + "\n" + addText;
+}
+
+function appendClientSummaryHistoryFromClientRow_(sourceRow) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sourceSheet = getSheetOrThrow_(ss, SOURCE_CLIENT_SHEET_NAME);
+  const targetSheet = getSheetOrThrow_(ss, TARGET_CLIENT_SHEET_NAME);
+
+  const sourceHeaders = getHeaderMap(sourceSheet, 1);
+  const sourceValues = sourceSheet.getRange(sourceRow, 1, 1, sourceSheet.getLastColumn()).getValues()[0];
+
+  const targetLastCol = targetSheet.getLastColumn();
+  const targetHeaderRow = targetSheet.getRange(1, 1, 1, targetLastCol).getValues()[0];
+  const outputRow = new Array(targetLastCol).fill("");
+
+  for (let i = 0; i < targetHeaderRow.length; i++) {
+    const targetHeader = String(targetHeaderRow[i] || "").trim();
+    if (!targetHeader) continue;
+
+    if (targetHeader === "Activity Timestamp") {
+      outputRow[i] = new Date();
+      continue;
+    }
+
+    if (targetHeader === "Edited By") {
+      try { outputRow[i] = Session.getEffectiveUser().getEmail(); } catch(e) { outputRow[i] = ""; }
+      continue;
+    }
+
+    const sourceCol = sourceHeaders[targetHeader];
+    if (sourceCol) {
+      outputRow[i] = sourceValues[sourceCol - 1];
+    }
+  }
+
+  const targetRow = getNextAppendRow_(targetSheet);
+  targetSheet.getRange(targetRow, 1, 1, targetLastCol).setValues([outputRow]);
+
+  const targetHeaders = getHeaderMap(targetSheet, 1);
+  if (targetHeaders["Activity Timestamp"]) {
+    targetSheet
+      .getRange(targetRow, targetHeaders["Activity Timestamp"])
+      .setNumberFormat("mm/dd/yyyy hh:mm:ss");
+  }
+}
+
+function confirmAppendClientSummaryHistory_(clientName, contactType, notes, lastContactDate) {
+  const dateText =
+    lastContactDate instanceof Date && !isNaN(lastContactDate)
+      ? Utilities.formatDate(lastContactDate, Session.getScriptTimeZone(), "MM/dd/yyyy")
+      : "";
+
+  const message =
+    "Save this latest update to ClientSummary?\n\n" +
+    "Client: " + String(clientName || "") + "\n" +
+    "Contact Type: " + String(contactType || "") + "\n" +
+    "Last Contact Date: " + dateText + "\n" +
+    "Notes: " + String(notes || "");
+
+  const response = Browser.msgBox(
+    "Save Update to ClientSummary",
+    message,
+    Browser.Buttons.YES_NO
+  );
+
+  return response === "yes";
+}
+
+function getNextAppendRow_(sheet) {
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+
+  if (lastRow < 2) return 2;
+
+  const data = sheet.getRange(2, 1, Math.max(lastRow - 1, 1), lastCol).getDisplayValues();
+
+  for (let i = 0; i < data.length; i++) {
+    const hasAnyValue = data[i].some(function(cell) {
+      return String(cell || "").trim() !== "";
+    });
+
+    if (!hasAnyValue) {
+      return i + 2;
+    }
+  }
+
+  return lastRow + 1;
+}
+
+function syncCOAContactTypeValidation_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const clientSheet = getSheetOrThrow_(ss, SOURCE_CLIENT_SHEET_NAME);
+  const coaSheet = getSheetOrThrow_(ss, COA_SHEET_NAME);
+
+  const clientHeaders = getHeaderMap(clientSheet, 1);
+  const coaHeaders = getHeaderMap(coaSheet, 1);
+
+  const clientContactTypeCol = clientHeaders["Contact Type"];
+  const coaContactTypeHeader = getExistingHeaderName_(coaHeaders, ["Contact Type"]);
+  const coaContactTypeCol = coaHeaders[coaContactTypeHeader];
+
+  if (!clientContactTypeCol) {
+    throw new Error("Missing 'Contact Type' header in Client sheet.");
+  }
+
+  if (!coaContactTypeCol) {
+    throw new Error("Missing 'Contact Type' header in COA sheet.");
+  }
+
+  const contactTypeOptions = getValidationOptions(clientSheet, clientContactTypeCol, 2);
+
+  if (!contactTypeOptions || contactTypeOptions.length === 0) {
+    throw new Error("No Contact Type validation options found in Client sheet.");
+  }
+
+  const rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(contactTypeOptions, true)
+    .setAllowInvalid(false)
+    .build();
+
+  const maxRows = coaSheet.getMaxRows();
+  if (maxRows < 2) return;
+
+  coaSheet.getRange(2, coaContactTypeCol, maxRows - 1, 1).setDataValidation(rule);
+}
+
+function cleanupPendingCOADuplicates_() {
+  ensurePendingCOASheet_();
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetOrThrow_(ss, PENDING_COA_SHEET_NAME);
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) {
+    SpreadsheetApp.getUi().alert("No pending COA rows to clean.");
+    return;
+  }
+
+  const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+  const latestByKey = {};
+
+  for (let i = 0; i < data.length; i++) {
+    const rowNumber = i + 2;
+    const clientID = String(data[i][2] || "").trim();
+    const task = normalizeTaskKey_(data[i][5]);
+    const processed = String(data[i][7] || "").trim();
+    const sequence = Number(data[i][8] || 0);
+
+    if (!clientID || processed === "YES") continue;
+
+    const key = clientID + "||" + (task || "__GENERAL__");
+
+    if (!latestByKey[key] || sequence > latestByKey[key].sequence) {
+      latestByKey[key] = { row: rowNumber, sequence: sequence };
+    }
+  }
+
+  let updatedCount = 0;
+
+  for (let i = 0; i < data.length; i++) {
+    const rowNumber = i + 2;
+    const clientID = String(data[i][2] || "").trim();
+    const task = normalizeTaskKey_(data[i][5]);
+    const processed = String(data[i][7] || "").trim();
+
+    if (!clientID || processed === "YES") continue;
+
+    const key = clientID + "||" + (task || "__GENERAL__");
+    const keepRow = latestByKey[key].row;
+
+    if (rowNumber !== keepRow) {
+      sheet.getRange(rowNumber, 8).setValue("YES");
+      updatedCount++;
+    }
+  }
+
+  SpreadsheetApp.getUi().alert(updatedCount + " duplicate pending COA row(s) marked as processed.");
+}
+
+function revertEditedCell_(e, range) {
+  if (!range) return;
+
+  if (typeof e.oldValue !== "undefined") {
+    range.setValue(e.oldValue);
+  } else {
+    range.clearContent();
+  }
+}
+
+function getNewlyAddedProviders_(oldValue, newValue) {
+  const oldItems = splitMultiSelectValues_(oldValue);
+  const newItems = splitMultiSelectValues_(newValue);
+
+  const oldLookup = {};
+  oldItems.forEach(function(item) {
+    oldLookup[item.toLowerCase()] = true;
+  });
+
+  return newItems.filter(function(item) {
+    return !oldLookup[item.toLowerCase()];
+  });
+}
+
+function splitMultiSelectValues_(value) {
+  return String(value || "")
+    .split(",")
+    .map(function(v) { return v.trim(); })
+    .filter(function(v) { return v !== ""; });
+}
+
+function onSelectionChange(e) {
+  try {
+    if (!e || !e.range) return;
+
+    const sheet = e.range.getSheet();
+    if (sheet.getName() !== "Dashboard") return;
+
+    const row = e.range.getRow();
+    const col = e.range.getColumn();
+    const selectorCell = sheet.getRange("K2");
+
+    let selectedValue = "";
+
+    if (col === 7) {
+      if (row >= 3 && row <= 5) {
+        selectedValue = "JMEG";
+      } else if (row >= 7 && row <= 9) {
+        selectedValue = "JJDD";
+      } else if (row >= 11 && row <= 13) {
+        selectedValue = "JRBP";
+      } else if (row >= 15 && row <= 17) {
+        selectedValue = "RC";
+      }
+    }
+
+    if (col === 3) {
+      switch (row) {
+        case 3:
+          selectedValue = "Updated";
+          break;
+        case 4:
+          selectedValue = "For Follow Up - Client";
+          break;
+        case 5:
+          selectedValue = "Overdue - Client";
+          break;
+        case 7:
+          selectedValue = "Newly Contacted";
+          break;
+        case 8:
+          selectedValue = "Negotiation";
+          break;
+        case 9:
+          selectedValue = "For Quotation";
+          break;
+        case 10:
+          selectedValue = "For Presentation";
+          break;
+        case 11:
+          selectedValue = "Closing";
+          break;
+        case 12:
+          selectedValue = "Closed Won";
+          break;
+        case 13:
+          selectedValue = "Closed Lost";
+          break;
+        case 15:
+          selectedValue = "Within TAT";
+          break;
+        case 16:
+          selectedValue = "For Follow Up - Quote";
+          break;
+        case 17:
+          selectedValue = "Overdue - Quote";
+          break;
+        case 18:
+          selectedValue = "For Franchise Renewal";
+          break;
+        case 20:
+          selectedValue = "MAXICARE";
+          break;
+        case 21:
+          selectedValue = "ICARE";
+          break;
+        case 22:
+          selectedValue = "INTELLICARE";
+          break;
+        case 23:
+          selectedValue = "PHILCARE";
+          break;
+        case 24:
+          selectedValue = "MEDICARD";
+          break;
+        case 25:
+          selectedValue = "VALUCARE";
+          break;
+        case 26:
+          selectedValue = "KAIZER";
+          break;
+        case 27:
+          selectedValue = "OONA";
+          break;
+        case 28:
+          selectedValue = "PHILBRITISH";
+          break;
+        case 29:
+          selectedValue = "PIONEER";
+          break;
+        case 30:
+          selectedValue = "BETHEL";
+          break;
+        case 31:
+          selectedValue = "ALLIEDBANKERS";
+          break;
+      }
+    }
+
+    if (selectedValue) {
+      selectorCell.setValue(selectedValue);
+      SpreadsheetApp.flush();
+    }
+
+  } catch (err) {
+    Logger.log("onSelectionChange error: " + err.message);
+  }
+}
+
+/***************************************
+ * MANUAL TASK HISTORY TRANSFER
+ * -------------------------------------
+ * WHAT IT DOES:
+ * - Watches the COA sheet
+ * - When "Date Completed" is filled in,
+ *   the row is moved to MTaskHistory
+ * - Then the original row is deleted
+ *
+ * REQUIRED SHEETS:
+ * - COA
+ * - MTaskHistory
+ *
+ * IMPORTANT:
+ * - COA and MTaskHistory must have the same headers
+ * - Headers must be on Row 1
+ ***************************************/

@@ -1,0 +1,11 @@
+# Local backups — never commit these (may contain client data)
+backup/
+
+# Superpowers internal planning files
+.superpowers/
+docs/superpowers/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
