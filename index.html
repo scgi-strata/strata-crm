@@ -663,6 +663,7 @@ th.col-filter-active{background:rgba(26,79,168,0.08) !important;color:var(--acce
           <th class="sortable" style="min-width:180px" data-col="name"            onclick="openColFilter('name','Client Name',this,event)">Client Name <span class="sort-arrow" id="sa-name"></span></th>
           <th class="sortable" style="min-width:180px" data-col="address"         onclick="openColFilter('address','Address',this,event)">Address <span class="sort-arrow" id="sa-address"></span></th>
           <th class="sortable" style="min-width:150px" data-col="contact"         onclick="openColFilter('contact','Contact Person',this,event)">Contact Person <span class="sort-arrow" id="sa-contact"></span></th>
+          <th class="sortable" style="min-width:140px" data-col="designation"     onclick="openColFilter('designation','Designation',this,event)">Designation <span class="sort-arrow" id="sa-designation"></span></th>
           <th style="min-width:120px">Mobile No.</th>
           <th style="min-width:180px">Email</th>
           <th class="sortable" style="min-width:120px" data-col="industry"        onclick="openColFilter('industry','Industry',this,event)">Industry <span class="sort-arrow" id="sa-industry"></span></th>
@@ -1560,11 +1561,11 @@ function parseClients(rows){
     let contacts=[];
     try{ if(o['Contacts']) contacts=JSON.parse(o['Contacts']); }catch(e){ contacts=[]; }
     if(!contacts.length&&(o['Contact Person']||o['Mobile No.']||o['Email'])){
-      contacts=[{name:o['Contact Person']||'',designation:'',email:o['Email']||'',mobile:o['Mobile No.']||''}];
+      contacts=[{name:o['Contact Person']||'',designation:o['Designation/Position']||'',email:o['Email']||'',mobile:o['Mobile No.']||''}];
     }
     return{
       id:o['Client ID'],name:o['Client Name'],address:o['Address']||'',
-      contact:o['Contact Person'],mobile:o['Mobile No.'],email:o['Email'],
+      contact:o['Contact Person'],designation:o['Designation/Position']||'',mobile:o['Mobile No.'],email:o['Email'],
       industry:o['Industry']||'',bizType:o['Business Type'],
       insType:o['Type of Insurance'],currentProvider:o['Current Provider'],
       renewal:fdi(o['Renewal Date']),provider:o['Provider'],status:o['Status'],
@@ -2063,6 +2064,7 @@ function renderClients(){
       <td class="td-bold" title="${c.name}">${c.name}</td>
       <td title="${c.address||''}" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--text2);font-size:12px">${c.address||'<span class="unassigned">—</span>'}</td>
       <td title="${allContacts||c.contact||''}">${c.contact||'—'}${c.contacts&&c.contacts.length>1?`<span class="td-mono" style="font-size:10px;color:var(--text3);margin-left:4px">+${c.contacts.length-1}</span>`:''}</td>
+      <td style="color:var(--text2);font-size:12px">${c.designation||'<span class="unassigned">—</span>'}</td>
       <td>${c.mobile||'—'}</td>
       <td title="${c.email||''}" style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${c.email||'—'}</td>
       <td title="${c.industry||''}">${c.industry||'—'}</td>
@@ -2080,7 +2082,7 @@ function renderClients(){
       <td>${docs}</td>
       <td><button class="btn" style="font-size:11px;height:26px;padding:0 8px" onclick="openClientModal(${idx})">Edit</button></td>
     </tr>`;
-  }).join(''):noData(20);
+  }).join(''):noData(21);
 }
 
 // ── COLUMN FILTER PANEL ──
@@ -2361,7 +2363,7 @@ async function completeCOATask(idx){
       const csTs = new Date().toLocaleString('en-PH');
       await appendHistoryWithRetry(
         CFG.clientSummarySheet||'ClientSummary',
-        [csTs, client.id, client.name, client.address||'', client.contact, client.mobile,
+        [csTs, client.id, client.name, client.address||'', client.contact, client.designation||'', client.mobile,
          client.email, client.industry||'', client.bizType, client.insType, client.currentProvider,
          client.renewal, client.provider, client.status, client.contactType,
          client.lastContact, client.nextFollowUp, client.assigned, client.notes, client.docs||'', AUTH.name||''],
@@ -2637,14 +2639,16 @@ async function appendHistoryWithRetry(sheetName, row, label){
 }
 
 // ── WRITE BACK HELPERS ──
-// Column order must match sheet: Client ID, Client Name, Address, Contact Person, Mobile No., Email,
+// Column order must match sheet:
+// Client ID, Client Name, Address, Contact Person, Designation/Position, Mobile No., Email,
 // Industry, Business Type, Type of Insurance, Current Provider, Renewal Date, Provider,
 // Status, Contact Type, Last Contact Date, Next Follow-up Date, Assigned, Notes, Client Documentation, Contacts
 function clientToRow(c){
   const pc=(c.contacts&&c.contacts.length)?c.contacts[0]:{};
   return[
     c.id, c.name, c.address||'',
-    c.contact||(pc.name||''), c.mobile||(pc.mobile||''), c.email||(pc.email||''),
+    c.contact||(pc.name||''), c.designation||(pc.designation||''),
+    c.mobile||(pc.mobile||''), c.email||(pc.email||''),
     c.industry||'', c.bizType, c.insType, c.currentProvider,
     c.renewal, c.provider, c.status, c.contactType,
     c.lastContact, c.nextFollowUp, c.assigned, c.notes, c.docs,
@@ -2837,6 +2841,7 @@ function buildHistoryChangeNote(oldRec, rec, isNew){
   // All fields — Address through Client Documentation
   chk('Address',          oldRec.address,         rec.address);
   chk('Contact Person',   oldRec.contact,          rec.contact);
+  chk('Designation',      oldRec.designation,      rec.designation);
   chk('Mobile No.',       oldRec.mobile,           rec.mobile);
   chk('Email',            oldRec.email,            rec.email);
   chk('Industry',         oldRec.industry,         rec.industry);
@@ -2915,7 +2920,8 @@ async function saveClient(){
   const rec={
     id:newId,
     name, address:document.getElementById('f-address').value,
-    contact:primaryContact.name, mobile:primaryContact.mobile, email:primaryContact.email,
+    contact:primaryContact.name, designation:primaryContact.designation||'',
+    mobile:primaryContact.mobile, email:primaryContact.email,
     industry:document.getElementById('f-industry').value,
     bizType:document.getElementById('f-biztype').value,
     insType:document.getElementById('f-instype').value,
@@ -2938,6 +2944,7 @@ async function saveClient(){
   const meaningfulChange = isNew || !oldRec || [
     [oldRec.address,         rec.address],
     [oldRec.contact,         rec.contact],
+    [oldRec.designation,     rec.designation],
     [oldRec.mobile,          rec.mobile],
     [oldRec.email,           rec.email],
     [oldRec.industry,        rec.industry],
@@ -2977,7 +2984,7 @@ async function saveClient(){
   if(meaningfulChange){
     appendHistoryWithRetry(
       CFG.clientSummarySheet||'ClientSummary',
-      [new Date().toLocaleString('en-PH'), rec.id, rec.name, rec.address||'', rec.contact, rec.mobile,
+      [new Date().toLocaleString('en-PH'), rec.id, rec.name, rec.address||'', rec.contact, rec.designation||'', rec.mobile,
        rec.email, rec.industry||'', rec.bizType, rec.insType, rec.currentProvider, rec.renewal,
        rec.provider, rec.status, rec.contactType, rec.lastContact, rec.nextFollowUp,
        rec.assigned, changeNote, rec.docs||'', AUTH.name||''],
@@ -3557,7 +3564,7 @@ async function drawerMarkComplete(idx){
     const histNote=notes?`[COA completed] ${task.task} — ${notes}`:`[COA completed] ${task.task}`;
     await appendHistoryWithRetry(
       CFG.clientSummarySheet||'ClientSummary',
-      [csTs,client.id,client.name,client.address||'',client.contact,client.mobile,
+      [csTs,client.id,client.name,client.address||'',client.contact,client.designation||'',client.mobile,
        client.email,client.industry||'',client.bizType,client.insType,client.currentProvider,
        client.renewal,client.provider,client.status,client.contactType,
        client.lastContact,client.nextFollowUp,client.assigned,histNote,client.docs||'',AUTH.name||''],
