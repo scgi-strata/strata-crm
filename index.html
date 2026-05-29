@@ -339,6 +339,22 @@ tbody tr:hover .col-freeze-2 { background: #e6edf8 !important; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
 
+/* ── CONTACTS POPUP ── */
+.contacts-popup{position:fixed;z-index:300;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,0.18);min-width:360px;max-width:520px;overflow:hidden;font-size:13px;}
+.contacts-popup-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);}
+.contacts-popup-title{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em;}
+.contacts-popup-close{border:none;background:none;font-size:18px;cursor:pointer;color:var(--text3);line-height:1;padding:0 2px;}
+.contacts-popup-close:hover{color:var(--text);}
+.contacts-popup table{width:100%;border-collapse:collapse;}
+.contacts-popup th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text3);padding:7px 12px;background:var(--surface2);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
+.contacts-popup td{padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle;}
+.contacts-popup tr:last-child td{border-bottom:none;}
+.contacts-popup tr:hover td{background:var(--surface2);}
+.contacts-popup-name{font-weight:500;color:var(--text);}
+.contacts-popup-sub{font-size:11px;color:var(--text3);margin-top:1px;}
+.contact-link{cursor:pointer;color:var(--blue);text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}
+.contact-link:hover{color:var(--accent);}
+
 /* ── COLUMN FILTER PANEL ── */
 .col-filter-panel{position:fixed;z-index:300;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,0.18);width:240px;font-size:13px;overflow:hidden;}
 .col-filter-header{padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;font-size:12px;color:var(--text2);display:flex;justify-content:space-between;align-items:center;}
@@ -1058,6 +1074,15 @@ th.col-filter-active{background:rgba(26,79,168,0.08) !important;color:var(--acce
       </div>
     </div>
   </div>
+</div>
+
+<!-- Contacts Popup -->
+<div id="contacts-popup" class="contacts-popup" style="display:none">
+  <div class="contacts-popup-head">
+    <span class="contacts-popup-title" id="cp-title">Contact Persons</span>
+    <button class="contacts-popup-close" onclick="closeContactsPopup()">×</button>
+  </div>
+  <div id="cp-body"></div>
 </div>
 
 <!-- Column Filter Panel (shared, repositioned by JS) -->
@@ -2007,6 +2032,57 @@ function renderDashboard(){
   }
 }
 
+// ── CONTACTS POPUP ──
+function openContactsPopup(idx, event){
+  event.stopPropagation();
+  const c = CLIENTS[idx];
+  if(!c) return;
+  const contacts = (c.contacts && c.contacts.length) ? c.contacts : [
+    {name: c.contact||'', designation: c.designation||'', email: c.email||'', mobile: c.mobile||''}
+  ];
+  const panel = document.getElementById('contacts-popup');
+  document.getElementById('cp-title').textContent = c.name;
+
+  const hasDesig = contacts.some(ct => ct.designation);
+  document.getElementById('cp-body').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Contact Person</th>
+        ${hasDesig ? '<th>Designation</th>' : ''}
+        <th>Mobile No.</th>
+        <th>Email</th>
+      </tr></thead>
+      <tbody>
+        ${contacts.filter(ct=>ct.name||ct.email||ct.mobile).map(ct=>`
+          <tr>
+            <td><div class="contacts-popup-name">${ct.name||'—'}</div></td>
+            ${hasDesig ? `<td><div class="contacts-popup-sub" style="color:var(--text2);font-size:12px">${ct.designation||'—'}</div></td>` : ''}
+            <td>${ct.mobile ? `<a href="tel:${ct.mobile}" style="color:var(--accent2)">${ct.mobile}</a>` : '—'}</td>
+            <td>${ct.email ? `<a href="mailto:${ct.email}" style="color:var(--accent2)">${ct.email}</a>` : '—'}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  // Position near the clicked cell
+  const rect = event.currentTarget.getBoundingClientRect();
+  panel.style.display = 'block';
+  const pw = panel.offsetWidth || 380;
+  let left = rect.left;
+  if(left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12;
+  panel.style.left = Math.max(8, left) + 'px';
+  panel.style.top  = (rect.bottom + 4) + 'px';
+
+  setTimeout(()=>document.addEventListener('click', _contactsPopupOutside, {once:true}), 0);
+}
+function _contactsPopupOutside(e){
+  const panel = document.getElementById('contacts-popup');
+  if(panel && !panel.contains(e.target)) closeContactsPopup();
+  else document.addEventListener('click', _contactsPopupOutside, {once:true});
+}
+function closeContactsPopup(){
+  document.getElementById('contacts-popup').style.display = 'none';
+}
+
 // ── CLIENTS ──
 function renderClients(){
   initOpts('c-status',[...new Set(CLIENTS.map(c=>c.status).filter(Boolean))]);
@@ -2063,7 +2139,9 @@ function renderClients(){
       <td class="td-mono">${c.id}</td>
       <td class="td-bold" title="${c.name}">${c.name}</td>
       <td title="${c.address||''}" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--text2);font-size:12px">${c.address||'<span class="unassigned">—</span>'}</td>
-      <td title="${allContacts||c.contact||''}">${c.contact||'—'}${c.contacts&&c.contacts.length>1?`<span class="td-mono" style="font-size:10px;color:var(--text3);margin-left:4px">+${c.contacts.length-1}</span>`:''}</td>
+      <td onclick="openContactsPopup(${idx},event)" style="cursor:pointer">
+        <span class="contact-link">${c.contact||'—'}</span>${c.contacts&&c.contacts.length>1?`<span class="td-mono" style="font-size:10px;color:var(--text3);margin-left:4px">+${c.contacts.length-1}</span>`:''}
+      </td>
       <td style="color:var(--text2);font-size:12px">${c.designation||'<span class="unassigned">—</span>'}</td>
       <td>${c.mobile||'—'}</td>
       <td title="${c.email||''}" style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${c.email||'—'}</td>
